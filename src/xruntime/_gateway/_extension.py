@@ -550,6 +550,27 @@ def mount_protocol_adapters(
 
             current_tenant.set(effective_tenant)
 
+            # Build the RuntimeExecutionPlan from the parsed request.
+            # The plan unifies all three protocols and carries budget,
+            # workspace, model, and knowledge scope for downstream
+            # governance (M4).
+            from ._plan import build_plan_from_request
+
+            # Resolve authorized KB ids and tenant tool allowlist from
+            # the principal (if available).
+            authorized_kb_ids: list[str] = []
+            if principal is not None and hasattr(principal, "kb_ids"):
+                authorized_kb_ids = list(principal.kb_ids)
+
+            plan = build_plan_from_request(
+                xrt_request,
+                tenant_tool_allowlist=None,
+                authorized_kb_ids=authorized_kb_ids,
+            )
+            # Override tenant/user from authenticated principal
+            plan.tenant_id = effective_tenant
+            plan.user_id = effective_user
+
             storage = app.state.storage
             chat_service = app.state.chat_service
             chat_run_registry = app.state.chat_run_registry

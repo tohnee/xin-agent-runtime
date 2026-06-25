@@ -373,9 +373,24 @@ class LlmWikiAdapter(KnowledgeAdapter):
                     compiled_dir,
                     f"{chunk_id}.md",
                 )
+                # YAML frontmatter with tenant/kb/source metadata
+                frontmatter = (
+                    f"---\n"
+                    f"tenant_id: "
+                    f"{metadata.get('tenant_id', 'default')}\n"
+                    f"kb_id: "
+                    f"{metadata.get('kb_id', 'default')}\n"
+                    f"source_id: {source_id}\n"
+                    f"section: {i + 1}\n"
+                    f"compiled_at: "
+                    f"{datetime.now().isoformat()}\n"
+                    f"---\n\n"
+                )
                 wiki_content = (
+                    f"{frontmatter}"
                     f"# {heading}\n\n"
-                    f"**Source**: {source_data.get('title', source_id)}\n"
+                    f"**Source**: "
+                    f"{source_data.get('title', source_id)}\n"
                     f"**Section**: {i + 1}\n\n"
                     f"{body}\n"
                 )
