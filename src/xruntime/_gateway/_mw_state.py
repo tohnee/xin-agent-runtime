@@ -214,7 +214,11 @@ class MiddlewareStateCache:
             )
         return self._rbac_mw
 
-    async def get_knowledge_middleware(self) -> Any:
+    async def get_knowledge_middleware(
+        self,
+        user_id: str = "",
+        kb_ids: list[str] | None = None,
+    ) -> Any:
         """Return the shared knowledge middleware, or None.
 
         Lazily creates the knowledge registry and middleware from
@@ -226,11 +230,16 @@ class MiddlewareStateCache:
         """
         if not self._config.knowledge.enabled:
             return None
-        if self._knowledge_mw is not None:
-            return self._knowledge_mw
         async with self._lock:
-            if self._knowledge_mw is not None:
-                return self._knowledge_mw
+            if self._knowledge_registry is not None:
+                return KnowledgeMiddleware(
+                    registry=self._knowledge_registry,
+                    mode=self._config.knowledge.mode,
+                    top_k=self._config.knowledge.retrieval_top_k,
+                    tenant_id=self._tenant_id,
+                    user_id=user_id,
+                    kb_ids=kb_ids or [],
+                )
             from .._runtime._knowledge import (
                 KnowledgeBaseConfig,
                 KnowledgeRegistry,
@@ -260,11 +269,13 @@ class MiddlewareStateCache:
             registry.register_from_config(base_config)
             await registry.initialize()
 
-            self._knowledge_mw = KnowledgeMiddleware(
-                registry=registry,
-                mode=kb_cfg.mode,
-                top_k=kb_cfg.retrieval_top_k,
-                tenant_id=self._tenant_id,
-            )
             self._knowledge_registry = registry
-        return self._knowledge_mw
+
+        return KnowledgeMiddleware(
+            registry=self._knowledge_registry,
+            mode=self._config.knowledge.mode,
+            top_k=self._config.knowledge.retrieval_top_k,
+            tenant_id=self._tenant_id,
+            user_id=user_id,
+            kb_ids=kb_ids or [],
+        )

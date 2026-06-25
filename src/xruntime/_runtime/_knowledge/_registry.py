@@ -36,6 +36,30 @@ from ._base import (
 from ._adapter import KnowledgeAdapter, KnowledgeAdapterFactory
 
 
+def _chunk_in_scope(chunk: KnowledgeChunk, query: KnowledgeQuery) -> bool:
+    """Return whether a retrieved chunk is visible to the query scope.
+
+    Missing metadata is treated as the legacy default tenant so existing
+    unscoped indexes remain readable only from the default tenant.
+
+    Args:
+        chunk (`KnowledgeChunk`): Retrieved chunk.
+        query (`KnowledgeQuery`): Query containing tenant and KB scope.
+
+    Returns:
+        `bool`: True when the chunk is inside the query scope.
+    """
+    metadata = chunk.metadata or {}
+    tenant_id = metadata.get("tenant_id", "default")
+    if tenant_id != query.tenant_id:
+        return False
+    if query.kb_ids:
+        kb_id = metadata.get("kb_id", "default")
+        if kb_id not in query.kb_ids:
+            return False
+    return True
+
+
 class KnowledgeRegistry:
     """Manages one or more knowledge base adapters.
 
@@ -177,8 +201,12 @@ class KnowledgeRegistry:
 
         for backend in self._backends:
             result = await backend.retrieve(query)
-            all_chunks.extend(result.chunks)
-            total_found += result.total_found
+            scoped_chunks = [
+                chunk for chunk in result.chunks
+                if _chunk_in_scope(chunk, query)
+            ]
+            all_chunks.extend(scoped_chunks)
+            total_found += len(scoped_chunks)
 
         merged = [c for c in all_chunks if c.score >= min_score]
         merged.sort(key=lambda c: c.score, reverse=True)

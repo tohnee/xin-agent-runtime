@@ -80,6 +80,11 @@ class KnowledgeMiddleware(MiddlewareBase):
             Default number of chunks to retrieve.
         tenant_id (`str`):
             Default tenant scope for retrieval.
+        user_id (`str`):
+            User scope for RBAC-aware knowledge retrieval.
+        kb_ids (`list[str]`):
+            Authorized knowledge-base ids for retrieval. Empty means
+            all KBs in the tenant are eligible.
         hint_template (`str`):
             Jinja2 template for the hint message. Receives
             ``{{ context }}`` (the formatted knowledge text).
@@ -97,6 +102,8 @@ class KnowledgeMiddleware(MiddlewareBase):
         mode: str = "static_control",
         top_k: int = 5,
         tenant_id: str = "default",
+        user_id: str = "",
+        kb_ids: list[str] | None = None,
         hint_template: str | None = None,
     ) -> None:
         """Initialize the middleware."""
@@ -104,6 +111,8 @@ class KnowledgeMiddleware(MiddlewareBase):
         self.mode = mode
         self.top_k = top_k
         self.tenant_id = tenant_id
+        self.user_id = user_id
+        self.kb_ids = kb_ids or []
         self.hint_template = hint_template or self.DEFAULT_HINT_TEMPLATE
 
     async def on_reply(
@@ -173,6 +182,8 @@ class KnowledgeMiddleware(MiddlewareBase):
             query=query_text,
             top_k=self.top_k,
             tenant_id=self.tenant_id,
+            user_id=self.user_id,
+            kb_ids=list(self.kb_ids),
         )
 
         try:
@@ -215,9 +226,13 @@ class KnowledgeMiddleware(MiddlewareBase):
                 registry=self.registry,
                 top_k=self.top_k,
                 tenant_id=self.tenant_id,
+                user_id=self.user_id,
+                kb_ids=list(self.kb_ids),
             ),
             IngestKnowledgeTool(
                 registry=self.registry,
                 tenant_id=self.tenant_id,
+                user_id=self.user_id,
+                kb_ids=list(self.kb_ids),
             ),
         ]

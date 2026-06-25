@@ -155,6 +155,11 @@ class KnowledgeQuery:
             Metadata-based filter (e.g. ``{"source_type": "code"}``).
         tenant_id (`str`):
             Tenant scope for multi-tenant knowledge isolation.
+        user_id (`str`):
+            User scope used by RBAC-aware retrievers and audit logs.
+        kb_ids (`list[str]`):
+            Authorized knowledge-base ids. Empty means all KBs within
+            the tenant are eligible.
     """
 
     query: str
@@ -162,6 +167,8 @@ class KnowledgeQuery:
     min_score: float | None = None
     filter_metadata: dict[str, Any] = field(default_factory=dict)
     tenant_id: str = "default"
+    user_id: str = ""
+    kb_ids: list[str] = field(default_factory=list)
 
 
 @dataclass

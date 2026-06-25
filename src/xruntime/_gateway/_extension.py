@@ -204,7 +204,9 @@ def create_xruntime_extension(
         # Knowledge middleware (RAG / LLM-Wiki auto-injection). Created
         # lazily and shared per tenant via the state cache; returns
         # ``None`` when ``config.knowledge.enabled`` is false.
-        knowledge_mw = await state_cache.get_knowledge_middleware()
+        knowledge_mw = await state_cache.get_knowledge_middleware(
+            user_id=user_id,
+        )
         if knowledge_mw is not None:
             middlewares.append(knowledge_mw)
 

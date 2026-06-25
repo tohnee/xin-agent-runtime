@@ -44,6 +44,7 @@ from ._base import (
     KnowledgeSource,
 )
 from ._adapter import KnowledgeAdapter
+from ._registry import _chunk_in_scope
 
 
 class LlmWikiAdapter(KnowledgeAdapter):
@@ -120,12 +121,17 @@ class LlmWikiAdapter(KnowledgeAdapter):
         Returns:
             `KnowledgeSource`: The stored source record.
         """
+        source_metadata = {
+            "tenant_id": "default",
+            "kb_id": "default",
+        }
+        source_metadata.update(metadata or {})
         source = KnowledgeSource(
             source_id=source_id,
             title=title or source_id,
             content=content,
             source_type=source_type,
-            metadata=metadata or {},
+            metadata=source_metadata,
             created_at=datetime.now().isoformat(),
         )
 
@@ -216,6 +222,7 @@ class LlmWikiAdapter(KnowledgeAdapter):
                     "title": heading,
                     "keywords": keywords,
                     "file": f"{chunk_id}.md",
+                    "metadata": source_data.get("metadata", {}),
                 }
                 chunk_count += 1
 
@@ -352,18 +359,22 @@ class LlmWikiAdapter(KnowledgeAdapter):
                 with open(wiki_path, "r", encoding="utf-8") as f:
                     content = f.read()
 
-            scored.append(
-                KnowledgeChunk(
-                    chunk_id=chunk_id,
-                    source_id=entry.get("source_id", ""),
-                    title=entry.get("title", ""),
-                    content=content,
-                    score=score,
-                    metadata={
-                        "keywords": entry.get("keywords", []),
-                    },
-                ),
+            metadata = dict(entry.get("metadata", {}))
+            metadata.setdefault("tenant_id", "default")
+            metadata.setdefault("kb_id", "default")
+            metadata["keywords"] = entry.get("keywords", [])
+
+            chunk = KnowledgeChunk(
+                chunk_id=chunk_id,
+                source_id=entry.get("source_id", ""),
+                title=entry.get("title", ""),
+                content=content,
+                score=score,
+                metadata=metadata,
             )
+            if not _chunk_in_scope(chunk, query):
+                continue
+            scored.append(chunk)
 
         scored.sort(key=lambda c: c.score, reverse=True)
         total = len(scored)
