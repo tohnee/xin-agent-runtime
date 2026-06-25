@@ -1,0 +1,98 @@
+# XRuntime configuration — example
+# Copy to your project and customize.
+
+server:
+  host: "0.0.0.0"
+  port: 8900
+  auth_enabled: true
+
+storage:
+  backend: redis
+  redis_host: localhost
+  redis_port: 6379
+  redis_db: 0
+  tenant_prefix: "tenant:{tid}:"
+
+message_bus:
+  backend: redis
+  redis_host: localhost
+  redis_port: 6379
+  redis_db: 0
+  tenant_prefix: "tenant:{tid}:"
+
+tenants:
+  - id: default
+    name: Default Tenant
+  - id: acme
+    name: ACME Corporation
+    credentials: []
+
+agents:
+  - name: code-engineer
+    system_prompt: "You are a code engineering agent."
+    model_config_name: claude-sonnet
+    allowed_tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Glob
+      - Grep
+    disallowed_tools: []
+
+# Model provider declarations — referenced by agents via model_config_name.
+# Each entry maps a config name to a (provider, credential, model) triple.
+# Values can also be provided via env vars:
+#   XRUNTIME_MODEL_PROVIDER, XRUNTIME_MODEL_API_KEY,
+#   XRUNTIME_MODEL_NAME, XRUNTIME_MODEL_BASE_URL
+model_providers:
+  claude-sonnet:
+    name: anthropic
+    api_key: "sk-ant-..."
+    model: "claude-sonnet-4-20250514"
+    base_url: null
+  gpt-4o:
+    name: openai
+    api_key: "sk-..."
+    model: "gpt-4o"
+    base_url: null
+
+mcps: []
+skills: []
+
+permission:
+  mode: default
+  rules: []
+
+plugins: []
+
+# ========== 知识库配置 ==========
+# 启用后，KnowledgeMiddleware 会在每次 Agent 回复前自动检索
+# 相关知识并注入上下文。支持 llm_wiki (编译器模式 AOT) 和
+# vector_store (传统 RAG) 后端。
+# 详见: docs/xruntime/SANDBOX-ARCHITECTURE.md 和
+#       src/xruntime/_runtime/_knowledge/
+knowledge:
+  enabled: false               # 设为 true 启用
+  backend: llm_wiki            # llm_wiki / vector_store / knowledge_graph / custom
+  mode: static_control         # static_control (自动注入) / agent_control (工具) / both
+  raw_dir: /var/lib/xruntime/kb-raw       # 原始文档目录
+  compiled_dir: /var/lib/xruntime/kb-compiled  # 编译后知识目录
+  retrieval_top_k: 5           # 每次检索返回的 chunk 数
+  auto_compile: false          # 摄入后是否自动编译
+  # embedding_model:           # 嵌入模型配置 (复用 AS EmbeddingModelBase)
+  #   name: openai
+  #   api_key: "sk-..."
+  #   model: "text-embedding-3-small"
+  #   dimensions: 1536
+  # llm_model:                 # 编译用 LLM 配置
+  #   name: anthropic
+  #   api_key: "sk-ant-..."
+  #   model: "claude-sonnet-4-20250514"
+  extra: {}                    # 后端特定配置
+
+observability:
+  otel_enabled: false
+  otel_endpoint: ""
+  audit_enabled: true
+  audit_storage: file
