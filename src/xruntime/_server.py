@@ -94,9 +94,6 @@ def build_xruntime_app(config: XRuntimeConfig | None = None) -> Any:
     from agentscope.app import create_app
     from agentscope.app.storage import RedisStorage
     from agentscope.app.message_bus import RedisMessageBus
-    from agentscope.app.workspace_manager import (
-        LocalWorkspaceManager,
-    )
 
     # Apply the tenant key-prefix so this runtime's Redis keys are
     # namespaced under ``config.storage.tenant_prefix`` (full key-prefix
@@ -123,12 +120,40 @@ def build_xruntime_app(config: XRuntimeConfig | None = None) -> Any:
         port=config.message_bus.redis_port,
         db=config.message_bus.redis_db,
     )
-    workspace_dir = os.environ.get(
-        "XRUNTIME_WORKSPACE_DIR",
-        "./xruntime-workspaces",
+
+    # Workspace backend selection via WorkspaceManagerFactory.
+    # In production, defaults to docker; local requires explicit
+    # ``allow_local_in_production`` override.
+    from xruntime._runtime._workspace import (
+        WorkspaceConfig,
+        WorkspaceManagerFactory,
     )
-    os.makedirs(workspace_dir, exist_ok=True)
-    workspace_manager = LocalWorkspaceManager(basedir=workspace_dir)
+
+    ws_backend = os.environ.get(
+        "XRUNTIME_WORKSPACE_BACKEND",
+        "local",
+    )
+    ws_production = os.environ.get(
+        "XRUNTIME_PRODUCTION",
+        "",
+    ).lower() in ("1", "true", "yes")
+    ws_config = WorkspaceConfig(
+        default_backend=ws_backend,
+        allow_local_in_production=os.environ.get(
+            "XRUNTIME_ALLOW_LOCAL_WORKSPACE",
+            "",
+        ).lower()
+        in ("1", "true", "yes"),
+        base_dir=os.environ.get(
+            "XRUNTIME_WORKSPACE_DIR",
+            "./xruntime-workspaces",
+        ),
+    )
+    ws_factory = WorkspaceManagerFactory(ws_config)
+    workspace_manager = ws_factory.create(
+        backend=ws_backend,
+        production=ws_production,
+    )
 
     app = create_app(
         storage=storage,
