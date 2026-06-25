@@ -202,7 +202,8 @@ class KnowledgeRegistry:
         for backend in self._backends:
             result = await backend.retrieve(query)
             scoped_chunks = [
-                chunk for chunk in result.chunks
+                chunk
+                for chunk in result.chunks
                 if _chunk_in_scope(chunk, query)
             ]
             all_chunks.extend(scoped_chunks)

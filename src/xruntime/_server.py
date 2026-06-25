@@ -38,7 +38,58 @@ def build_xruntime_app(config: XRuntimeConfig | None = None) -> Any:
     if config.observability.otel_enabled:
         _setup_otel(config.observability.otel_endpoint)
 
-    ext = create_xruntime_extension(config=config)
+    # Build auth stores from env so AuthMiddleware resolves API keys
+    # and JWT tokens to tenant-bound principals (not just anonymous
+    # key-matching). Created before ``create_xruntime_extension`` so
+    # the middleware factory can use the membership store.
+    from xruntime._runtime._tenant._store import (
+        ApiKeyRecord,
+        ApiKeyStore,
+        JwtClaimsParser,
+        TenantMembershipStore,
+    )
+    from xruntime._runtime._tenant import TenantRole
+
+    api_key_store: ApiKeyStore | None = None
+    jwt_parser: JwtClaimsParser | None = None
+    membership_store = TenantMembershipStore()
+
+    import json as _json
+
+    records_env = os.environ.get("XRUNTIME_API_KEY_RECORDS", "")
+    if records_env:
+        try:
+            records_data = _json.loads(records_env)
+            records = [
+                ApiKeyRecord(
+                    key=r["key"],
+                    tenant_id=r["tenant_id"],
+                    user_id=r["user_id"],
+                    role=TenantRole(r.get("role", "viewer")),
+                    kb_ids=r.get("kb_ids", []),
+                    key_id=r.get("key_id"),
+                    active=r.get("active", True),
+                )
+                for r in records_data
+            ]
+            api_key_store = ApiKeyStore(records)
+            for r in records:
+                membership_store.upsert(
+                    tenant_id=r.tenant_id,
+                    user_id=r.user_id,
+                    role=r.role,
+                )
+        except (ValueError, KeyError, _json.JSONDecodeError):
+            pass
+
+    jwt_secret = os.environ.get("XRUNTIME_JWT_SECRET", "")
+    if jwt_secret:
+        jwt_parser = JwtClaimsParser(secret=jwt_secret)
+
+    ext = create_xruntime_extension(
+        config=config,
+        membership_store=membership_store,
+    )
 
     from agentscope.app import create_app
     from agentscope.app.storage import RedisStorage
@@ -102,6 +153,8 @@ def build_xruntime_app(config: XRuntimeConfig | None = None) -> Any:
         app.add_middleware(
             AuthMiddleware,
             api_keys=api_keys,
+            api_key_store=api_key_store,
+            jwt_parser=jwt_parser,
         )
 
     rate_limit = os.environ.get("XRUNTIME_RATE_LIMIT", "")

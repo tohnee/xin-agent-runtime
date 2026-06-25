@@ -105,6 +105,7 @@ class KnowledgeMiddleware(MiddlewareBase):
         user_id: str = "",
         kb_ids: list[str] | None = None,
         hint_template: str | None = None,
+        role: str = "viewer",
     ) -> None:
         """Initialize the middleware."""
         self.registry = registry
@@ -114,6 +115,7 @@ class KnowledgeMiddleware(MiddlewareBase):
         self.user_id = user_id
         self.kb_ids = kb_ids or []
         self.hint_template = hint_template or self.DEFAULT_HINT_TEMPLATE
+        self.role = role
 
     async def on_reply(
         self,
@@ -228,11 +230,13 @@ class KnowledgeMiddleware(MiddlewareBase):
                 tenant_id=self.tenant_id,
                 user_id=self.user_id,
                 kb_ids=list(self.kb_ids),
+                role=self.role,
             ),
             IngestKnowledgeTool(
                 registry=self.registry,
                 tenant_id=self.tenant_id,
                 user_id=self.user_id,
                 kb_ids=list(self.kb_ids),
+                role=self.role,
             ),
         ]

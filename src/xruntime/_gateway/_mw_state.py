@@ -218,6 +218,7 @@ class MiddlewareStateCache:
         self,
         user_id: str = "",
         kb_ids: list[str] | None = None,
+        role: str = "viewer",
     ) -> Any:
         """Return the shared knowledge middleware, or None.
 
@@ -231,6 +232,12 @@ class MiddlewareStateCache:
         if not self._config.knowledge.enabled:
             return None
         async with self._lock:
+            from .._runtime._knowledge import (
+                KnowledgeBaseConfig,
+                KnowledgeRegistry,
+                KnowledgeMiddleware,
+            )
+
             if self._knowledge_registry is not None:
                 return KnowledgeMiddleware(
                     registry=self._knowledge_registry,
@@ -239,12 +246,8 @@ class MiddlewareStateCache:
                     tenant_id=self._tenant_id,
                     user_id=user_id,
                     kb_ids=kb_ids or [],
+                    role=role,
                 )
-            from .._runtime._knowledge import (
-                KnowledgeBaseConfig,
-                KnowledgeRegistry,
-                KnowledgeMiddleware,
-            )
             from .._runtime._knowledge._adapter import get_default_factory
             from .._runtime._knowledge._llm_wiki_adapter import (
                 _register_default_adapter,
@@ -278,4 +281,5 @@ class MiddlewareStateCache:
             tenant_id=self._tenant_id,
             user_id=user_id,
             kb_ids=kb_ids or [],
+            role=role,
         )

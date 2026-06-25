@@ -21,6 +21,46 @@ from ._base import KnowledgeQuery
 from ._registry import KnowledgeRegistry
 
 
+def _check_tenant_action(
+    role: str,
+    action: str,
+) -> PermissionDecision:
+    """Check a tenant-level RBAC action for a knowledge tool.
+
+    Args:
+        role (`str`): The principal's role (owner/admin/contributor/viewer).
+        action (`str`): The action to check (kb:query, doc:ingest).
+
+    Returns:
+        `PermissionDecision`: ALLOW if the role has the action, DENY otherwise.
+    """
+    from .._tenant import Action, TenantPolicy, TenantRole
+
+    try:
+        normalized_role = TenantRole(role)
+    except ValueError:
+        return PermissionDecision(
+            behavior=PermissionBehavior.DENY,
+            message=f"Unknown role: {role}",
+        )
+    policy = TenantPolicy.default()
+    principal = type(
+        "P",
+        (),
+        {"role": normalized_role},
+    )()
+    decision = policy.check(principal, Action(action))
+    if decision.allowed:
+        return PermissionDecision(
+            behavior=PermissionBehavior.ALLOW,
+            message=decision.reason,
+        )
+    return PermissionDecision(
+        behavior=PermissionBehavior.DENY,
+        message=decision.reason,
+    )
+
+
 class SearchKnowledgeTool(ToolBase):
     """Tool that lets the agent search the knowledge base.
 
@@ -49,6 +89,7 @@ class SearchKnowledgeTool(ToolBase):
         tenant_id: str = "default",
         user_id: str = "",
         kb_ids: list[str] | None = None,
+        role: str = "viewer",
     ) -> None:
         """Initialize the tool."""
         self.registry = registry
@@ -56,6 +97,7 @@ class SearchKnowledgeTool(ToolBase):
         self._tenant_id = tenant_id
         self._user_id = user_id
         self._kb_ids = kb_ids or []
+        self._role = role
 
     @property
     def tool_call_name(self) -> str:
@@ -67,11 +109,10 @@ class SearchKnowledgeTool(ToolBase):
         tool_input: dict[str, Any],
         context: PermissionContext,
     ) -> PermissionDecision:
-        """Check permissions for knowledge search (read-only).
+        """Check permissions for knowledge search.
 
-        Searching the knowledge base is read-only, so this returns
-        ``PASSTHROUGH`` to let the permission engine continue with
-        rule matching.
+        Enforces tenant RBAC: the principal's role must have
+        ``kb:query`` action. Viewer and above can search.
 
         Args:
             tool_input (`dict[str, Any]`):
@@ -80,12 +121,9 @@ class SearchKnowledgeTool(ToolBase):
                 The active permission context.
 
         Returns:
-            `PermissionDecision`: A passthrough decision.
+            `PermissionDecision`: ALLOW if role has kb:query, else DENY.
         """
-        return PermissionDecision(
-            behavior=PermissionBehavior.PASSTHROUGH,
-            message="Knowledge search is read-only.",
-        )
+        return _check_tenant_action(self._role, "kb:query")
 
     async def __call__(
         self,
@@ -144,12 +182,14 @@ class IngestKnowledgeTool(ToolBase):
         tenant_id: str = "default",
         user_id: str = "",
         kb_ids: list[str] | None = None,
+        role: str = "viewer",
     ) -> None:
         """Initialize the tool."""
         self.registry = registry
         self._tenant_id = tenant_id
         self._user_id = user_id
         self._kb_ids = kb_ids or []
+        self._role = role
 
     @property
     def tool_call_name(self) -> str:
@@ -163,9 +203,9 @@ class IngestKnowledgeTool(ToolBase):
     ) -> PermissionDecision:
         """Check permissions for knowledge ingestion (write).
 
-        Ingestion mutates the knowledge base, so this returns
-        ``PASSTHROUGH`` to let the permission engine apply its rules
-        (e.g. deny ``ingest_knowledge`` for read-only roles).
+        Enforces tenant RBAC: the principal's role must have
+        ``doc:ingest`` action. Contributor and above can ingest.
+        Viewer is denied.
 
         Args:
             tool_input (`dict[str, Any]`):
@@ -174,12 +214,9 @@ class IngestKnowledgeTool(ToolBase):
                 The active permission context.
 
         Returns:
-            `PermissionDecision`: A passthrough decision.
+            `PermissionDecision`: ALLOW if role has doc:ingest, else DENY.
         """
-        return PermissionDecision(
-            behavior=PermissionBehavior.PASSTHROUGH,
-            message="Knowledge ingestion writes to the knowledge base.",
-        )
+        return _check_tenant_action(self._role, "doc:ingest")
 
     async def __call__(
         self,

@@ -79,8 +79,10 @@ async def test_llm_wiki_uses_tenant_kb_physical_paths(tmp_path) -> None:
 
     kb_root = root / "tenants" / "acme" / "kbs" / "finance"
     assert (kb_root / "raw" / "doc1.json").exists()
-    assert (kb_root / "wiki" / "doc1__0.md").exists()
+    # In scoped_layout mode chunk_id includes tenant/kb prefix
+    assert (kb_root / "wiki" / "acme__finance__doc1__0.md").exists()
     assert (kb_root / "index" / "_index.json").exists()
+    assert (kb_root / "index" / "manifest.json").exists()
 
 
 async def test_static_knowledge_injection_does_not_leak_restricted_kb() -> None:

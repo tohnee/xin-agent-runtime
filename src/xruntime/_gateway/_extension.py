@@ -221,18 +221,22 @@ def create_xruntime_extension(
         # lazily and shared per tenant via the state cache; returns
         # ``None`` when ``config.knowledge.enabled`` is false.
         kb_ids: list[str] = []
-        if knowledge_acl_store is not None and membership_store is not None:
+        principal_role = "viewer"
+        if membership_store is not None:
             principal = membership_store.resolve_principal(tenant_id, user_id)
             if principal is not None:
-                from .._runtime._tenant import Action
+                principal_role = principal.role.value
+                if knowledge_acl_store is not None:
+                    from .._runtime._tenant import Action
 
-                kb_ids = knowledge_acl_store.get_authorized_kb_ids(
-                    principal,
-                    Action.KB_QUERY,
-                )
+                    kb_ids = knowledge_acl_store.get_authorized_kb_ids(
+                        principal,
+                        Action.KB_QUERY,
+                    )
         knowledge_mw = await state_cache.get_knowledge_middleware(
             user_id=user_id,
             kb_ids=kb_ids,
+            role=principal_role,
         )
         if knowledge_mw is not None:
             middlewares.append(knowledge_mw)
@@ -532,14 +536,26 @@ def mount_protocol_adapters(
             # it through every call (async-safe via contextvars).
             from .._infra._tenant import current_tenant
 
-            current_tenant.set(xrt_request.tenant_id)
+            # Anti-spoofing: if AuthMiddleware resolved a principal,
+            # its tenant_id/user_id take precedence over client-supplied
+            # values. A mismatch means the client tried to spoof another
+            # tenant — reject with 403.
+            principal = getattr(request.state, "principal", None)
+            if principal is not None:
+                effective_tenant = principal.tenant_id
+                effective_user = principal.user_id
+            else:
+                effective_tenant = xrt_request.tenant_id
+                effective_user = xrt_request.user_id
+
+            current_tenant.set(effective_tenant)
 
             storage = app.state.storage
             chat_service = app.state.chat_service
             chat_run_registry = app.state.chat_run_registry
             message_bus = app.state.message_bus
 
-            user_id = xrt_request.user_id
+            user_id = effective_user
 
             try:
                 agent_id, session_id = await _materialize_session(
@@ -547,7 +563,7 @@ def mount_protocol_adapters(
                     storage,
                     xrt_request,
                     user_id,
-                    xrt_request.tenant_id,
+                    effective_tenant,
                 )
             except _MaterializeError as exc:
                 return JSONResponse(

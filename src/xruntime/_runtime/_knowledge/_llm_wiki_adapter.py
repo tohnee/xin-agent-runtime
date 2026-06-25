@@ -78,14 +78,39 @@ class LlmWikiAdapter(KnowledgeAdapter):
         self._initialized = True
 
     def _load_index(self) -> None:
-        """Load the compiled page index from disk."""
-        index_path = os.path.join(
-            self.config.compiled_dir,
-            "_index.json",
-        )
-        if os.path.exists(index_path):
-            with open(index_path, "r", encoding="utf-8") as f:
-                self._index = json.load(f)
+        """Load the compiled page index from disk.
+
+        In scoped_layout mode, walks all tenant/kb index dirs and
+        loads manifest.json files. In flat mode, loads _index.json.
+        """
+        self._index = {}
+        if self._scoped_layout_enabled():
+            # Walk tenant/kb dirs and load manifest.json
+            tenants_root = os.path.join(
+                self.config.raw_dir,
+                "tenants",
+            )
+            if not os.path.exists(tenants_root):
+                return
+            for tenant_name in os.listdir(tenants_root):
+                kbs_root = os.path.join(tenants_root, tenant_name, "kbs")
+                if not os.path.isdir(kbs_root):
+                    continue
+                for kb_name in os.listdir(kbs_root):
+                    index_dir = os.path.join(kbs_root, kb_name, "index")
+                    manifest_path = os.path.join(index_dir, "manifest.json")
+                    if os.path.exists(manifest_path):
+                        with open(manifest_path, encoding="utf-8") as f:
+                            scoped = json.load(f)
+                        self._index.update(scoped)
+        else:
+            index_path = os.path.join(
+                self.config.compiled_dir,
+                "_index.json",
+            )
+            if os.path.exists(index_path):
+                with open(index_path, "r", encoding="utf-8") as f:
+                    self._index = json.load(f)
 
     def _save_index(self) -> None:
         """Persist the index to disk."""
@@ -125,6 +150,72 @@ class LlmWikiAdapter(KnowledgeAdapter):
             return self.config.compiled_dir
         return os.path.join(self._kb_root(tenant_id, kb_id), "index")
 
+    def _audit_dir_for(self, tenant_id: str, kb_id: str) -> str:
+        """Return the audit directory for a tenant/KB."""
+        if not self._scoped_layout_enabled():
+            return os.path.join(self.config.raw_dir, "audit")
+        return os.path.join(self._kb_root(tenant_id, kb_id), "audit")
+
+    def _write_audit(
+        self,
+        action: str,
+        tenant_id: str,
+        kb_id: str,
+        **extra: Any,
+    ) -> None:
+        """Append an audit entry to knowledge-audit.jsonl.
+
+        Args:
+            action (`str`): The action (ingest/compile/retrieve/delete).
+            tenant_id (`str`): Tenant scope.
+            kb_id (`str`): KB scope.
+            **extra: Additional fields for the audit entry.
+        """
+        audit_dir = self._audit_dir_for(tenant_id, kb_id)
+        os.makedirs(audit_dir, exist_ok=True)
+        audit_path = os.path.join(audit_dir, "knowledge-audit.jsonl")
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            "action": action,
+            "tenant_id": tenant_id,
+            "kb_id": kb_id,
+            **extra,
+        }
+        with open(audit_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    def _redact_secrets(self, content: str) -> str:
+        """Redact common secret patterns from content before storing.
+
+        Args:
+            content (`str`): Raw content.
+
+        Returns:
+            `str`: Content with secrets replaced by ``[REDACTED_*]``.
+        """
+        redacted = content
+        # API keys: sk- followed by 20+ alphanumeric chars
+        redacted = re.sub(
+            r"sk-[a-zA-Z0-9]{20,}",
+            "[REDACTED_API_KEY]",
+            redacted,
+        )
+        # Bearer tokens
+        redacted = re.sub(
+            r"Bearer\s+[a-zA-Z0-9\-._~+/]+=*",
+            "Bearer [REDACTED_TOKEN]",
+            redacted,
+        )
+        # Private key blocks
+        redacted = re.sub(
+            r"-----BEGIN [A-Z ]*PRIVATE KEY-----"
+            r".*?-----END [A-Z ]*PRIVATE KEY-----",
+            "[REDACTED_PRIVATE_KEY]",
+            redacted,
+            flags=re.DOTALL,
+        )
+        return redacted
+
     async def ingest(
         self,
         source_id: str,
@@ -155,10 +246,12 @@ class LlmWikiAdapter(KnowledgeAdapter):
             "kb_id": "default",
         }
         source_metadata.update(metadata or {})
+        # Redact secrets before storing
+        redacted_content = self._redact_secrets(content)
         source = KnowledgeSource(
             source_id=source_id,
             title=title or source_id,
-            content=content,
+            content=redacted_content,
             source_type=source_type,
             metadata=source_metadata,
             created_at=datetime.now().isoformat(),
@@ -188,6 +281,14 @@ class LlmWikiAdapter(KnowledgeAdapter):
                 indent=2,
             )
 
+        self._write_audit(
+            "ingest",
+            source.metadata.get("tenant_id", "default"),
+            source.metadata.get("kb_id", "default"),
+            source_id=source_id,
+            title=source.title,
+        )
+
         if self.config.auto_compile:
             await self.compile()
 
@@ -209,8 +310,15 @@ class LlmWikiAdapter(KnowledgeAdapter):
         if not self._initialized:
             await self.initialize()
 
+        # Track compiled source_ids scoped by (tenant_id, kb_id, source_id)
+        # so the same source_id in different tenants doesn't get skipped.
         compiled_ids = {
-            entry.get("source_id") for entry in self._index.values()
+            (
+                entry.get("metadata", {}).get("tenant_id", "default"),
+                entry.get("metadata", {}).get("kb_id", "default"),
+                entry.get("source_id"),
+            )
+            for entry in self._index.values()
         }
 
         chunk_count = 0
@@ -234,7 +342,10 @@ class LlmWikiAdapter(KnowledgeAdapter):
                 source_data = json.load(f)
 
             source_id = source_data["source_id"]
-            if source_id in compiled_ids:
+            source_meta = source_data.get("metadata", {})
+            source_tenant = source_meta.get("tenant_id", "default")
+            source_kb = source_meta.get("kb_id", "default")
+            if (source_tenant, source_kb, source_id) in compiled_ids:
                 continue
 
             sections = self._split_sections(
@@ -243,7 +354,13 @@ class LlmWikiAdapter(KnowledgeAdapter):
             )
 
             for i, (heading, body) in enumerate(sections):
-                chunk_id = f"{source_id}__{i}"
+                # Include tenant/kb in chunk_id to avoid collisions
+                # when the same source_id exists in different tenants.
+                chunk_id = (
+                    f"{source_tenant}__{source_kb}__{source_id}__{i}"
+                    if self._scoped_layout_enabled()
+                    else f"{source_id}__{i}"
+                )
                 keywords = self._extract_keywords(body)
 
                 metadata = source_data.get("metadata", {})
@@ -276,23 +393,38 @@ class LlmWikiAdapter(KnowledgeAdapter):
 
         self._save_index()
         if self._scoped_layout_enabled():
+            written_dirs: set[str] = set()
             for entry in self._index.values():
                 metadata = entry.get("metadata", {})
-                index_dir = self._index_dir_for(
-                    metadata.get("tenant_id", "default"),
-                    metadata.get("kb_id", "default"),
-                )
+                tid = metadata.get("tenant_id", "default")
+                kid = metadata.get("kb_id", "default")
+                index_dir = self._index_dir_for(tid, kid)
+                if index_dir in written_dirs:
+                    continue
+                written_dirs.add(index_dir)
                 os.makedirs(index_dir, exist_ok=True)
-                index_path = os.path.join(index_dir, "_index.json")
                 scoped = {
-                    cid: item for cid, item in self._index.items()
+                    cid: item
+                    for cid, item in self._index.items()
                     if item.get("metadata", {}).get("tenant_id", "default")
-                    == metadata.get("tenant_id", "default")
-                    and item.get("metadata", {}).get("kb_id", "default")
-                    == metadata.get("kb_id", "default")
+                    == tid
+                    and item.get("metadata", {}).get("kb_id", "default") == kid
                 }
+                # Write manifest.json (the per-KB index manifest)
+                manifest_path = os.path.join(index_dir, "manifest.json")
+                with open(manifest_path, "w", encoding="utf-8") as f:
+                    json.dump(scoped, f, ensure_ascii=False, indent=2)
+                # Also write _index.json for backward compat
+                index_path = os.path.join(index_dir, "_index.json")
                 with open(index_path, "w", encoding="utf-8") as f:
                     json.dump(scoped, f, ensure_ascii=False, indent=2)
+                # Audit the compile
+                self._write_audit(
+                    "compile",
+                    tid,
+                    kid,
+                    chunks_produced=len(scoped),
+                )
         return chunk_count
 
     def _split_sections(
@@ -376,8 +508,8 @@ class LlmWikiAdapter(KnowledgeAdapter):
     ) -> KnowledgeResult:
         """Retrieve wiki pages matching the query.
 
-        Uses simple keyword overlap scoring. Production should use
-        embedding-based semantic search.
+        Uses BM25 scoring over keyword and title tokens. Production
+        should use embedding-based semantic search for better recall.
 
         Args:
             query (`KnowledgeQuery`):
@@ -392,30 +524,66 @@ class LlmWikiAdapter(KnowledgeAdapter):
             await self.initialize()
 
         top_k = query.top_k or self.config.retrieval_top_k
-        query_words = set(
-            re.findall(
-                r"[a-zA-Z\u4e00-\u9fff]{2,}",
-                query.query.lower(),
-            )
+        query_terms = re.findall(
+            r"[a-zA-Z\u4e00-\u9fff]{2,}",
+            query.query.lower(),
         )
 
-        scored: list[KnowledgeChunk] = []
+        # Precompute document frequencies for BM25 IDF
+        all_docs: list[dict[str, Any]] = []
         for chunk_id, entry in self._index.items():
-            entry_keywords = set(entry.get("keywords", []))
-            entry_title_words = set(
-                re.findall(
-                    r"[a-zA-Z\u4e00-\u9fff]{2,}",
-                    entry.get("title", "").lower(),
+            entry_keywords = entry.get("keywords", [])
+            entry_title_words = re.findall(
+                r"[a-zA-Z\u4e00-\u9fff]{2,}",
+                entry.get("title", "").lower(),
+            )
+            doc_tokens = entry_keywords + entry_title_words
+            all_docs.append(
+                {
+                    "chunk_id": chunk_id,
+                    "entry": entry,
+                    "tokens": doc_tokens,
+                    "tf": {},
+                },
+            )
+
+        N = len(all_docs)
+        avgdl = sum(len(d["tokens"]) for d in all_docs) / N if N > 0 else 0
+        # BM25 parameters
+        k1 = 1.5
+        b = 0.75
+
+        # Compute IDF for each query term
+        df: dict[str, int] = {}
+        for term in set(query_terms):
+            df[term] = sum(1 for d in all_docs if term in d["tokens"])
+
+        scored: list[KnowledgeChunk] = []
+        for doc in all_docs:
+            # Compute term frequencies for this doc
+            doc_tf: dict[str, int] = {}
+            for token in doc["tokens"]:
+                doc_tf[token] = doc_tf.get(token, 0) + 1
+
+            # BM25 score
+            bm25_score = 0.0
+            dl = len(doc["tokens"])
+            for term in query_terms:
+                if term not in doc_tf:
+                    continue
+                tf = doc_tf[term]
+                n = df.get(term, 0)
+                idf = ((N - n + 0.5) / (n + 0.5) + 1) if n > 0 else 0
+                tf_norm = (tf * (k1 + 1)) / (
+                    tf + k1 * (1 - b + b * dl / max(avgdl, 1))
                 )
-            )
-            overlap = len(
-                query_words & (entry_keywords | entry_title_words),
-            )
-            if overlap == 0:
+                bm25_score += idf * tf_norm
+
+            if bm25_score <= 0:
                 continue
 
-            score = overlap / max(len(query_words), 1)
-
+            entry = doc["entry"]
+            chunk_id = doc["chunk_id"]
             entry_metadata = entry.get("metadata", {})
             wiki_path = os.path.join(
                 self._compiled_dir_for(
@@ -429,7 +597,7 @@ class LlmWikiAdapter(KnowledgeAdapter):
                 with open(wiki_path, "r", encoding="utf-8") as f:
                     content = f.read()
 
-            metadata = dict(entry.get("metadata", {}))
+            metadata = dict(entry_metadata)
             metadata.setdefault("tenant_id", "default")
             metadata.setdefault("kb_id", "default")
             metadata["keywords"] = entry.get("keywords", [])
@@ -439,7 +607,7 @@ class LlmWikiAdapter(KnowledgeAdapter):
                 source_id=entry.get("source_id", ""),
                 title=entry.get("title", ""),
                 content=content,
-                score=score,
+                score=bm25_score,
                 metadata=metadata,
             )
             if not _chunk_in_scope(chunk, query):
@@ -451,6 +619,16 @@ class LlmWikiAdapter(KnowledgeAdapter):
         scored = scored[:top_k]
 
         latency_ms = int((time.monotonic() - start) * 1000)
+
+        # Audit the retrieve
+        self._write_audit(
+            "retrieve",
+            query.tenant_id,
+            query.kb_ids[0] if query.kb_ids else "default",
+            query=query.query,
+            results=total,
+            latency_ms=latency_ms,
+        )
 
         return KnowledgeResult(
             query=query.query,
