@@ -96,6 +96,35 @@ class LlmWikiAdapter(KnowledgeAdapter):
         with open(index_path, "w", encoding="utf-8") as f:
             json.dump(self._index, f, ensure_ascii=False, indent=2)
 
+    def _scoped_layout_enabled(self) -> bool:
+        """Whether to use tenant/KB physical directories."""
+        return bool(self.config.extra.get("scoped_layout"))
+
+    def _kb_root(self, tenant_id: str, kb_id: str) -> str:
+        """Return the physical root for a tenant/KB."""
+        return os.path.join(
+            self.config.raw_dir,
+            "tenants",
+            tenant_id,
+            "kbs",
+            kb_id,
+        )
+
+    def _raw_dir_for(self, tenant_id: str, kb_id: str) -> str:
+        if not self._scoped_layout_enabled():
+            return self.config.raw_dir
+        return os.path.join(self._kb_root(tenant_id, kb_id), "raw")
+
+    def _compiled_dir_for(self, tenant_id: str, kb_id: str) -> str:
+        if not self._scoped_layout_enabled():
+            return self.config.compiled_dir
+        return os.path.join(self._kb_root(tenant_id, kb_id), "wiki")
+
+    def _index_dir_for(self, tenant_id: str, kb_id: str) -> str:
+        if not self._scoped_layout_enabled():
+            return self.config.compiled_dir
+        return os.path.join(self._kb_root(tenant_id, kb_id), "index")
+
     async def ingest(
         self,
         source_id: str,
@@ -135,8 +164,13 @@ class LlmWikiAdapter(KnowledgeAdapter):
             created_at=datetime.now().isoformat(),
         )
 
+        raw_dir = self._raw_dir_for(
+            source.metadata.get("tenant_id", "default"),
+            source.metadata.get("kb_id", "default"),
+        )
+        os.makedirs(raw_dir, exist_ok=True)
         path = os.path.join(
-            self.config.raw_dir,
+            raw_dir,
             f"{source_id}.json",
         )
         with open(path, "w", encoding="utf-8") as f:
@@ -180,14 +214,22 @@ class LlmWikiAdapter(KnowledgeAdapter):
         }
 
         chunk_count = 0
-        for filename in os.listdir(self.config.raw_dir):
-            if not filename.endswith(".json"):
-                continue
+        source_paths: list[str] = []
+        if self._scoped_layout_enabled():
+            for root, _dirs, files in os.walk(self.config.raw_dir):
+                if os.path.basename(root) != "raw":
+                    continue
+                for filename in files:
+                    if filename.endswith(".json"):
+                        source_paths.append(os.path.join(root, filename))
+        else:
+            for filename in os.listdir(self.config.raw_dir):
+                if filename.endswith(".json"):
+                    source_paths.append(
+                        os.path.join(self.config.raw_dir, filename),
+                    )
 
-            source_path = os.path.join(
-                self.config.raw_dir,
-                filename,
-            )
+        for source_path in source_paths:
             with open(source_path, "r", encoding="utf-8") as f:
                 source_data = json.load(f)
 
@@ -204,8 +246,14 @@ class LlmWikiAdapter(KnowledgeAdapter):
                 chunk_id = f"{source_id}__{i}"
                 keywords = self._extract_keywords(body)
 
+                metadata = source_data.get("metadata", {})
+                compiled_dir = self._compiled_dir_for(
+                    metadata.get("tenant_id", "default"),
+                    metadata.get("kb_id", "default"),
+                )
+                os.makedirs(compiled_dir, exist_ok=True)
                 wiki_path = os.path.join(
-                    self.config.compiled_dir,
+                    compiled_dir,
                     f"{chunk_id}.md",
                 )
                 wiki_content = (
@@ -227,6 +275,24 @@ class LlmWikiAdapter(KnowledgeAdapter):
                 chunk_count += 1
 
         self._save_index()
+        if self._scoped_layout_enabled():
+            for entry in self._index.values():
+                metadata = entry.get("metadata", {})
+                index_dir = self._index_dir_for(
+                    metadata.get("tenant_id", "default"),
+                    metadata.get("kb_id", "default"),
+                )
+                os.makedirs(index_dir, exist_ok=True)
+                index_path = os.path.join(index_dir, "_index.json")
+                scoped = {
+                    cid: item for cid, item in self._index.items()
+                    if item.get("metadata", {}).get("tenant_id", "default")
+                    == metadata.get("tenant_id", "default")
+                    and item.get("metadata", {}).get("kb_id", "default")
+                    == metadata.get("kb_id", "default")
+                }
+                with open(index_path, "w", encoding="utf-8") as f:
+                    json.dump(scoped, f, ensure_ascii=False, indent=2)
         return chunk_count
 
     def _split_sections(
@@ -350,8 +416,12 @@ class LlmWikiAdapter(KnowledgeAdapter):
 
             score = overlap / max(len(query_words), 1)
 
+            entry_metadata = entry.get("metadata", {})
             wiki_path = os.path.join(
-                self.config.compiled_dir,
+                self._compiled_dir_for(
+                    entry_metadata.get("tenant_id", "default"),
+                    entry_metadata.get("kb_id", "default"),
+                ),
                 entry.get("file", f"{chunk_id}.md"),
             )
             content = ""
@@ -455,8 +525,12 @@ class LlmWikiAdapter(KnowledgeAdapter):
         ]
         for chunk_id in to_remove:
             entry = self._index.pop(chunk_id)
+            entry_metadata = entry.get("metadata", {})
             wiki_path = os.path.join(
-                self.config.compiled_dir,
+                self._compiled_dir_for(
+                    entry_metadata.get("tenant_id", "default"),
+                    entry_metadata.get("kb_id", "default"),
+                ),
                 entry.get("file", f"{chunk_id}.md"),
             )
             if os.path.exists(wiki_path):

@@ -9,6 +9,13 @@ from ._policy import (
     TenantPolicy,
     TenantRole,
 )
+from ._store import (
+    ApiKeyRecord,
+    ApiKeyStore,
+    AuthPrincipal,
+    JwtClaimsParser,
+    TenantMembershipStore,
+)
 
 __all__ = [
     "Action",
@@ -17,4 +24,9 @@ __all__ = [
     "TenantMember",
     "TenantPolicy",
     "TenantRole",
+    "ApiKeyRecord",
+    "ApiKeyStore",
+    "AuthPrincipal",
+    "JwtClaimsParser",
+    "TenantMembershipStore",
 ]

@@ -105,6 +105,8 @@ def create_xruntime_extension(
     config_path: str | None = None,
     adapter_registry: AdapterRegistry | None = None,
     tenant_id: str = "default",
+    membership_store: Any | None = None,
+    knowledge_acl_store: Any | None = None,
 ) -> dict[str, Any]:
     """Create the XRuntime extension config for AS ``create_app``.
 
@@ -131,6 +133,12 @@ def create_xruntime_extension(
             Custom adapter registry.
         tenant_id (`str`):
             Default tenant id for middlewares / audit sink.
+        membership_store (`Any | None`):
+            Optional store resolving ``(tenant_id, user_id)`` to a
+            membership principal.
+        knowledge_acl_store (`Any | None`):
+            Optional store deriving authorized KB ids for knowledge
+            retrieval.
 
     Returns:
         `dict[str, Any]`: Extension config dict.
@@ -197,6 +205,14 @@ def create_xruntime_extension(
             # (``permission.default_role``, default ``viewer``). Apps
             # may assign broader roles after authenticating membership.
             rbac = await state_cache.get_rbac_middleware()
+            principal = None
+            if membership_store is not None:
+                principal = membership_store.resolve_principal(
+                    tenant_id,
+                    user_id,
+                )
+            if principal is not None:
+                rbac.assign_role(session_id, principal.role.value)
             middlewares.append(rbac)
 
             middlewares.append(SecretRedactionMiddleware())
@@ -204,8 +220,19 @@ def create_xruntime_extension(
         # Knowledge middleware (RAG / LLM-Wiki auto-injection). Created
         # lazily and shared per tenant via the state cache; returns
         # ``None`` when ``config.knowledge.enabled`` is false.
+        kb_ids: list[str] = []
+        if knowledge_acl_store is not None and membership_store is not None:
+            principal = membership_store.resolve_principal(tenant_id, user_id)
+            if principal is not None:
+                from .._runtime._tenant import Action
+
+                kb_ids = knowledge_acl_store.get_authorized_kb_ids(
+                    principal,
+                    Action.KB_QUERY,
+                )
         knowledge_mw = await state_cache.get_knowledge_middleware(
             user_id=user_id,
+            kb_ids=kb_ids,
         )
         if knowledge_mw is not None:
             middlewares.append(knowledge_mw)
