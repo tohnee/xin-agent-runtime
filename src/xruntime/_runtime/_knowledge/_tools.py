@@ -49,7 +49,14 @@ def _check_tenant_action(
         (),
         {"role": normalized_role},
     )()
-    decision = policy.check(principal, Action(action))
+    try:
+        normalized_action = Action(action)
+    except ValueError:
+        return PermissionDecision(
+            behavior=PermissionBehavior.DENY,
+            message=f"Unknown action: {action}",
+        )
+    decision = policy.check(principal, normalized_action)
     if decision.allowed:
         return PermissionDecision(
             behavior=PermissionBehavior.ALLOW,
