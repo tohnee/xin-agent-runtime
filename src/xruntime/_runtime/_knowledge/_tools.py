@@ -31,6 +31,15 @@ class SearchKnowledgeTool(ToolBase):
             Default number of results.
         tenant_id (`str`):
             Default tenant scope.
+        user_id (`str`):
+            User scope for RBAC-aware ingestion.
+        kb_ids (`list[str]`):
+            Target knowledge-base ids. The first id is written as
+            ``kb_id`` metadata when present.
+        user_id (`str`):
+            User scope for RBAC-aware retrieval.
+        kb_ids (`list[str]`):
+            Authorized knowledge-base ids.
     """
 
     def __init__(
@@ -38,11 +47,15 @@ class SearchKnowledgeTool(ToolBase):
         registry: KnowledgeRegistry,
         top_k: int = 5,
         tenant_id: str = "default",
+        user_id: str = "",
+        kb_ids: list[str] | None = None,
     ) -> None:
         """Initialize the tool."""
         self.registry = registry
         self._top_k = top_k
         self._tenant_id = tenant_id
+        self._user_id = user_id
+        self._kb_ids = kb_ids or []
 
     @property
     def tool_call_name(self) -> str:
@@ -94,6 +107,8 @@ class SearchKnowledgeTool(ToolBase):
             query=query,
             top_k=top_k or self._top_k,
             tenant_id=self._tenant_id,
+            user_id=self._user_id,
+            kb_ids=list(self._kb_ids),
         )
         result = await self.registry.retrieve(kb_query)
         text = result.to_context_text()
@@ -116,16 +131,25 @@ class IngestKnowledgeTool(ToolBase):
             The knowledge registry to ingest into.
         tenant_id (`str`):
             Default tenant scope.
+        user_id (`str`):
+            User scope for RBAC-aware ingestion.
+        kb_ids (`list[str]`):
+            Target knowledge-base ids. The first id is written as
+            ``kb_id`` metadata when present.
     """
 
     def __init__(
         self,
         registry: KnowledgeRegistry,
         tenant_id: str = "default",
+        user_id: str = "",
+        kb_ids: list[str] | None = None,
     ) -> None:
         """Initialize the tool."""
         self.registry = registry
         self._tenant_id = tenant_id
+        self._user_id = user_id
+        self._kb_ids = kb_ids or []
 
     @property
     def tool_call_name(self) -> str:
@@ -189,6 +213,11 @@ class IngestKnowledgeTool(ToolBase):
             content=content,
             title=title,
             source_type=source_type,
+            metadata={
+                "tenant_id": self._tenant_id,
+                "user_id": self._user_id,
+                "kb_id": self._kb_ids[0] if self._kb_ids else "default",
+            },
         )
 
         if self.registry.backends:

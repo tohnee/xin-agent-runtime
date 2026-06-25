@@ -62,6 +62,7 @@ skills: []
 
 permission:
   mode: default
+  default_role: viewer  # least-privilege default; assign broader roles after auth
   rules: []
 
 plugins: []

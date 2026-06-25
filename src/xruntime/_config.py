@@ -178,11 +178,15 @@ class PermissionConfig(BaseModel):
             Default permission mode — ``"default"``,
             ``"accept_edits"``, ``"explore"``, ``"bypass"``,
             ``"dont_ask"``.
+        default_role (`str`):
+            Tenant role assigned when no explicit membership is resolved.
+            Defaults to ``"viewer"`` for least privilege.
         rules (`list[dict[str, Any]]`):
             Declarative permission rules.
     """
 
     mode: str = "default"
+    default_role: str = "viewer"
     rules: list[dict[str, Any]] = Field(default_factory=list)
 
 
