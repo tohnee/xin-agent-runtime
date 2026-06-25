@@ -147,8 +147,9 @@ class MiddlewareStateCache:
     async def get_rbac_middleware(self) -> Any:
         """Return the shared RBAC middleware.
 
-        Default role: ``"admin"`` allows all tools (``*`` → allow).
-        Applications can assign different roles per session via
+        The default role is configured by ``permission.default_role`` and
+        defaults to ``"viewer"`` for least privilege. Applications can
+        assign different roles per session via
         :meth:`RbacMiddleware.assign_role`.
 
         Returns:
@@ -165,9 +166,27 @@ class MiddlewareStateCache:
                 RbacRule,
             )
 
+            owner_role = RoleDefinition(
+                "owner",
+                [RbacRule("*", "allow")],
+            )
             admin_role = RoleDefinition(
                 "admin",
                 [RbacRule("*", "allow")],
+            )
+            contributor_role = RoleDefinition(
+                "contributor",
+                [
+                    RbacRule("Read", "allow"),
+                    RbacRule("Glob", "allow"),
+                    RbacRule("Grep", "allow"),
+                    RbacRule("Write", "allow"),
+                    RbacRule("Edit", "allow"),
+                    RbacRule("search_knowledge", "allow"),
+                    RbacRule("ingest_knowledge", "allow"),
+                    RbacRule("Bash", "deny"),
+                    RbacRule("*", "deny"),
+                ],
             )
             viewer_role = RoleDefinition(
                 "viewer",
@@ -175,14 +194,23 @@ class MiddlewareStateCache:
                     RbacRule("Read", "allow"),
                     RbacRule("Glob", "allow"),
                     RbacRule("Grep", "allow"),
+                    RbacRule("search_knowledge", "allow"),
+                    RbacRule("ingest_knowledge", "deny"),
+                    RbacRule("Write", "deny"),
+                    RbacRule("Edit", "deny"),
+                    RbacRule("Bash", "deny"),
                     RbacRule("*", "deny"),
                 ],
             )
+            default_role = self._config.permission.default_role
             self._rbac_mw = RbacMiddleware(
                 roles={
+                    "owner": owner_role,
                     "admin": admin_role,
+                    "contributor": contributor_role,
                     "viewer": viewer_role,
                 },
+                default_role=default_role,
             )
         return self._rbac_mw
 

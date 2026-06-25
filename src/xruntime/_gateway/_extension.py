@@ -193,11 +193,10 @@ def create_xruntime_extension(
                 QuotaMiddleware(QuotaConfig(), tracker=quota_tracker)
             )
 
-            # RBAC defaults to the "admin" role (allow all) so tool
-            # calls are not blocked unless an app assigns a stricter
-            # role.
+            # RBAC defaults to the configured least-privilege role
+            # (``permission.default_role``, default ``viewer``). Apps
+            # may assign broader roles after authenticating membership.
             rbac = await state_cache.get_rbac_middleware()
-            rbac.assign_role(session_id, "admin")
             middlewares.append(rbac)
 
             middlewares.append(SecretRedactionMiddleware())

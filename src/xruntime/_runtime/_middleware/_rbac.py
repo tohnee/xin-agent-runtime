@@ -85,9 +85,11 @@ class RbacMiddleware(MiddlewareBase):
     def __init__(
         self,
         roles: dict[str, RoleDefinition],
+        default_role: str | None = None,
     ) -> None:
         """Initialize the middleware."""
         self.roles = roles
+        self.default_role = default_role
         self._session_roles: dict[str, str] = {}
 
     def assign_role(
@@ -134,6 +136,8 @@ class RbacMiddleware(MiddlewareBase):
             `str`: ``"allow"`` or ``"deny"``.
         """
         role_name = self._session_roles.get(session_id)
+        if role_name is None:
+            role_name = self.default_role
         if role_name is None:
             return "deny"
         role = self.roles.get(role_name)
