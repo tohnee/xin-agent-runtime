@@ -58,6 +58,7 @@ xruntime-dev = [
     "claude-agent-sdk",
     "pyyaml",
     "pytest-asyncio",
+    "pytest-cov",
     "httpx",
 ]
 

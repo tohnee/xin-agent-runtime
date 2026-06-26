@@ -50,7 +50,6 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install -q -e .[xruntime-dev]
-          uv pip install pytest-cov
 
       - name: Run all tests with coverage
         env:
