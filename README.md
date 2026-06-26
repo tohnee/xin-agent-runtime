@@ -1,46 +1,19 @@
 <p align="center">
-  <img
-    src="https://img.alicdn.com/imgextra/i1/O1CN01nTg6w21NqT5qFKH1u_!!6000000001621-55-tps-550-550.svg"
-    alt="AgentScope Logo"
-    width="200"
-  />
+  <h1 align="center">Xin Agent Runtime</h1>
+  <p align="center">企业级 Agent 开发运行时底座</p>
 </p>
 
-<span align="center">
-
-[**中文主页**](https://github.com/agentscope-ai/agentscope/blob/main/README_zh.md) | [**Documentation**](https://docs.agentscope.io/) | [**Roadmap**](https://github.com/orgs/agentscope-ai/projects/2/views/1)
-
-</span>
-
 <p align="center">
-    <a href="https://arxiv.org/abs/2402.14034">
-        <img
-            src="https://img.shields.io/badge/cs.MA-2402.14034-B31C1C?logo=arxiv&logoColor=B31C1C"
-            alt="arxiv"
-        />
-    </a>
-    <a href="https://pypi.org/project/agentscope/">
+    <a href="https://github.com/tohnee/xin-agent-runtime">
         <img
             src="https://img.shields.io/badge/python-3.11+-blue?logo=python"
-            alt="pypi"
+            alt="python"
         />
     </a>
-    <a href="https://pypi.org/project/agentscope/">
+    <a href="https://github.com/tohnee/xin-agent-runtime/actions">
         <img
-            src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fpypi.org%2Fpypi%2Fagentscope%2Fjson&query=%24.info.version&prefix=v&logo=pypi&label=version"
-            alt="pypi"
-        />
-    </a>
-    <a href="https://discord.gg/eYMpfnkG8h">
-        <img
-            src="https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white"
-            alt="discord"
-        />
-    </a>
-    <a href="https://docs.agentscope.io/">
-        <img
-            src="https://img.shields.io/badge/Docs-English%7C%E4%B8%AD%E6%96%87-blue?logo=markdown"
-            alt="docs"
+            src="https://img.shields.io/badge/CI-passing-brightgreen?logo=github"
+            alt="ci"
         />
     </a>
     <a href="./LICENSE">
@@ -49,224 +22,240 @@
             alt="license"
         />
     </a>
+    <a href="https://github.com/tohnee/xin-agent-runtime">
+        <img
+            src="https://img.shields.io/badge/tests-446%20passed-brightgreen"
+            alt="tests"
+        />
+    </a>
+    <a href="https://github.com/tohnee/xin-agent-runtime">
+        <img
+            src="https://img.shields.io/badge/coverage-86%25-green"
+            alt="coverage"
+        />
+    </a>
 </p>
 
-<p align="center">
-<img src="https://trendshift.io/api/badge/repositories/20310" alt="agentscope-ai%2Fagentscope | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
-</p>
+<span align="center">
 
-## What is AgentScope 2.0?
+[**中文文档**](./README_zh.md) | [**操作手册**](./docs/xruntime/OPS-GUIDE.md) | [**SDK 指南**](./docs/xruntime/SDK-GUIDE.md) | [**安全架构**](./docs/xruntime/FINAL-SECURITY-ARCHITECTURE.md) | [**开发路线**](./docs/xruntime/ENTERPRISE-RUNTIME-ROADMAP.md)
 
-AgentScope 2.0 is a production-ready, easy-to-use agent framework with essential abstractions that work with rising model capability and built-in support for .
+</span>
 
-- [**Event System** →](https://docs.agentscope.io/v2/building-blocks/message-and-event) A unified event bus to the frontend and human-in-the-loop support.
-- [**Permission System** →](https://docs.agentscope.io/v2/building-blocks/permission-system) Fine-grained, configurable control over tools and resources.
-- [**Multi-tenancy & Multi-session Service** →](https://docs.agentscope.io/v2/deploy/agent-service) Production-grade serving with isolation across tenants and sessions.
-- [**Workspace / Sandbox Support** →](https://docs.agentscope.io/v2/building-blocks/workspace) Run tools and code in isolated environments, with built-in backends for local, Docker, and E2B.
-- [**Extensible Middleware System** →](https://docs.agentscope.io/v2/building-blocks/middleware) Composable hooks to customize and extend the agent's reasoning-acting loop.
+---
 
-We design for increasingly agentic LLMs.
-Our approach leverages the models' reasoning and tool use abilities
-rather than constraining them with strict prompts and opinionated orchestrations.
+## 什么是 Xin Agent Runtime？
 
-<img src="assets/images/agentscope.png" alt="agentscope" width="100%"/>
+Xin Agent Runtime 是一个**企业级 Agent 开发运行时底座**，基于 AgentScope 执行内核与 XRuntime 企业扩展层联合开发，提供从协议接入到生产部署的完整能力链。
 
-## News
-<!-- BEGIN NEWS -->
-- **[2026-06] `INTE`:** Mem0 supported. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/long_term_memory) | [Docs](https://docs.agentscope.io/v2)
-- **[2026-06] `FEAT`:** Agent Team supported. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/agent_service) | [Docs](https://docs.agentscope.io/v2/deploy/agent-team)
-- **[2026-05] `RELS`:** AgentScope 2.0 released! [Docs](https://docs.agentscope.io/)
-<!-- END NEWS -->
+### 核心架构
 
-[More news →](./docs/NEWS.md)
-
-## Community
-
-Welcome to join our community on
-
-| [Discord](https://discord.gg/eYMpfnkG8h)                                                                                         | DingTalk                                                                  |
-|----------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| <img src="https://gw.alicdn.com/imgextra/i1/O1CN01hhD1mu1Dd3BWVUvxN_!!6000000000238-2-tps-400-400.png" width="100" height="100"> | <img src="./assets/images/dingtalk_qr_code.png" width="100" height="100"> |
-
-## Quickstart
-
-### Installation
-
-> AgentScope requires **Python 3.11** or higher.
-
-#### From PyPI
-
-```bash
-uv pip install agentscope
-# or
-# pip install agentscope
+```
+Client SDK / Protocol (Anthropic / Claude Code / OpenCode)
+    ↓
+XRuntime Gateway (Auth + RateLimit + Protocol Adapter)
+    ↓
+RuntimeExecutionPlan (统一执行计划)
+    ↓
+Tenant / RBAC / Model / Workspace / Knowledge Policy
+    ↓
+AgentScope ChatService / Agent / Workspace / Model
+    ↓
+AgentEvent Stream
+    ↓
+XRuntime Protocol Adapter → Client Response
 ```
 
-#### From source
+### 核心能力
+
+| 能力 | 说明 |
+|------|------|
+| **多协议接入** | Anthropic Messages API、Claude Code SDK、OpenCode SDK 三种协议入口 |
+| **多租户隔离** | Redis key-prefix 隔离 + per-request tenant resolution + anti-spoofing |
+| **RBAC 权限** | Owner/Admin/Contributor/Viewer 四级角色 + 16 个细粒度 Action |
+| **知识库治理** | LLM-Wiki AOT 编译 + BM25 检索 + per-KB ACL + audit log |
+| **企业中间件** | Audit、Quota、RBAC、SecretRedaction、KnowledgeMiddleware |
+| **Workspace 沙箱** | Local/Docker/E2B 后端 + 生产拒绝 local + path traversal guard |
+| **模型治理** | ModelCapabilityRegistry + ModelRouter + tenant allowlist + fallback |
+| **可观测性** | OTel tracing + Prometheus metrics + Langfuse + audit log |
+| **统一执行计划** | RuntimeExecutionPlan 统一三协议 + permissions 只能收紧 |
+
+---
+
+## 快速开始
+
+### 安装
+
+> Xin Agent Runtime 需要 **Python 3.11** 或更高版本。
 
 ```bash
-# Pull the source code from GitHub
-git clone -b main https://github.com/agentscope-ai/agentscope.git
+# 克隆仓库
+git clone https://github.com/tohnee/xin-agent-runtime.git
+cd xin-agent-runtime
 
-# Install the package in editable mode
-cd agentscope
-
-uv pip install -e .
-# or
-# pip install -e .
+# 安装（含开发依赖）
+uv pip install -e ".[dev]"
+# 或
+pip install -e ".[dev]"
 ```
 
-## Hello AgentScope!
+### 启动服务
 
-Start your first agent with AgentScope 2.0:
+```bash
+# 设置环境变量
+export XRUNTIME_API_KEYS="sk-your-key-1,sk-your-key-2"
+export XRUNTIME_API_KEY_RECORDS='[{"key":"sk-admin","tenant_id":"acme","user_id":"alice","role":"admin","kb_ids":["kb1"]}]'
+export XRUNTIME_WORKSPACE_BACKEND=docker
+export XRUNTIME_PRODUCTION=1
+
+# 启动
+python -m xruntime._server
+```
+
+### 使用 SDK
 
 ```python
-from agentscope.agent import Agent
-from agentscope.tool import Toolkit, Bash, Grep, Glob, Read, Write, Edit
-from agentscope.credential import DashScopeCredential
-from agentscope.model import DashScopeChatModel
-from agentscope.message import UserMsg
-from agentscope.event import EventType
+import asyncio
+from xruntime_sdk import create_client
 
-import os, asyncio
-
-
-async def main() -> None:
-    agent = Agent(
-        name="Friday",
-        system_prompt="You're a helpful assistant named Friday.",
-        model=DashScopeChatModel(
-            credential=DashScopeCredential(
-              api_key=os.environ["DASHSCOPE_API_KEY"]
-            ),
-            model="qwen3.6-plus",
-        ),
-        toolkit=Toolkit(
-            tools=[
-                Bash(),
-                Grep(),
-                Glob(),
-                Read(),
-                Write(),
-                Edit(),
-            ]
-        ),
+async def main():
+    client = create_client(
+        "http://localhost:8900",
+        tenant_id="acme",
+        api_key="sk-admin",
     )
 
-    async for evt in agent.reply_stream(UserMsg("Tony", "Hi, Friday!")):
-        # Handle the event stream, e.g., print the message, update UI, etc.
-        match evt.type:
-            case EventType.REPLY_START:
-                ...
-            case EventType.MODEL_CALL_START:
-                ...
-            case EventType.TEXT_BLOCK_START:
-                ...
-            case EventType.TEXT_BLOCK_DELTA:
-                ...
-            case EventType.TEXT_BLOCK_END:
-                ...
+    # Anthropic 协议
+    result = await client.query(
+        protocol="anthropic",
+        prompt="List all files in the project",
+        model="claude-sonnet-4-20250514",
+    )
 
-            # Handle other event types
+    # Claude Code SDK 协议
+    result = await client.query(
+        protocol="claude_code",
+        prompt="Fix the bug in auth.py",
+        options={
+            "allowed_tools": ["Read", "Edit", "Bash"],
+            "permission_mode": "acceptEdits",
+            "max_turns": 10,
+            "max_budget_usd": 5.0,
+        },
+    )
 
 asyncio.run(main())
 ```
 
-## Hello Agent Service!
+### 开发 Agent
 
-An extensible FastAPI based **multi-tenancy**, **multi-session** agent service with pre-built Web UI in `examples/web_ui`
+```python
+from agentscope.agent import Agent
+from agentscope.tool import Toolkit, Bash, Read, Write, Edit
+from agentscope.model import OpenAIChatModel
+from agentscope.credential import ApiKeyCredential
+from agentscope.message import UserMsg
+import asyncio, os
 
-<table>
-  <tr>
-    <td align="center">
-      <img src="assets/images/team.gif" alt="Agent team" width="100%"/>
-      <br/>
-      <sub><b>Agent team</b> — a leader agent spawns workers and coordinates them through the built-in team tools.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="assets/images/task.gif" alt="Task planning" width="100%"/>
-      <br/>
-      <sub><b>Task planning</b> — the agent breaks complex work into a tracked plan and updates it as it goes.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="assets/images/permission_bypass.gif" alt="Permission control in bypass mode" width="100%"/>
-      <br/>
-      <sub><b>Permission control in bypass mode</b> — the agent runs end-to-end without pausing for tool-call confirmations.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="assets/images/bg_tool.gif" alt="Background task offloading" width="100%"/>
-      <br/>
-      <sub><b>Background task offloading</b> — a long-running tool moves to the background; its result later wakes the agent up and the conversation resumes.</sub>
-    </td>
-  </tr>
-</table>
+async def main():
+    agent = Agent(
+        name="Friday",
+        system_prompt="You're a helpful assistant.",
+        model=OpenAIChatModel(
+            credential=ApiKeyCredential(
+                api_key=os.environ["OPENAI_API_KEY"]
+            ),
+            model="gpt-4o",
+        ),
+        toolkit=Toolkit(tools=[Bash(), Read(), Write(), Edit()]),
+    )
+    async for evt in agent.reply_stream(UserMsg("user", "Hi!")):
+        print(evt)
 
-Run the following commands to start the agent service backend and the web UI:
+asyncio.run(main())
+```
 
+---
+
+## 安全架构
+
+Xin Agent Runtime 实现了 10 层防御体系：
+
+| 层 | 防御机制 | 覆盖率 |
+|----|----------|--------|
+| L1 网关 | AuthMiddleware (API Key + JWT) | 100% |
+| L2 反欺骗 | Principal tenant_id 覆盖客户端值 | Tested |
+| L3 RBAC | 四级角色权限矩阵 (默认 deny) | 95.7% |
+| L4 KB ACL | per-KB ownership + grant | 93.6% |
+| L5 工具权限 | check_permissions 强制 kb:query/doc:ingest | 73% |
+| L6 配额 | token/cost 超限阻断 | 100% |
+| L7 脱敏 | secret redaction (audit + ingest + langfuse) | 82-94% |
+| L8 沙箱 | WorkspaceManagerFactory (生产拒绝 local) | 100% |
+| L9 审计 | knowledge-audit.jsonl + AuditMiddleware | 83.5% |
+| L10 限流 | RateLimitMiddleware (429) | 90.2% |
+
+详见 [安全架构文档](./docs/xruntime/FINAL-SECURITY-ARCHITECTURE.md)。
+
+---
+
+## 项目结构
+
+```
+xin-agent-runtime/
+├── src/
+│   ├── agentscope/          # 执行内核（Agent/Model/Tool/Workspace/Storage）
+│   ├── xruntime/            # 企业扩展层
+│   │   ├── _gateway/        # 协议适配 + 认证 + 限流 + 执行计划
+│   │   ├── _runtime/        # 中间件 + 知识库 + 租户 + Workspace + 模型治理
+│   │   ├── _infra/          # 租户隔离 + 指标
+│   │   └── _config.py       # YAML 配置
+│   └── xruntime_sdk/        # 客户端 SDK
+├── tests/
+│   └── xruntime/            # 446 个测试 (unit/contract/integration/e2e)
+├── docs/
+│   ├── xruntime/            # 操作手册 + 安全文档 + 路线图
+│   └── adr/                 # 架构决策记录
+└── .github/workflows/       # CI/CD 流水线
+```
+
+---
+
+## CI/CD
+
+| 工作流 | 说明 |
+|--------|------|
+| `xruntime-ci.yml` | Lint (flake8+black) + Test (coverage≥80%) + Security Gate |
+| `unittest.yml` | 全项目测试 |
+| `pre-commit.yml` | 代码格式检查 |
+
+---
+
+## 开发路线
+
+| Milestone | 状态 | 说明 |
+|-----------|------|------|
+| M0 测试护栏 | ✅ | 文档 + 测试分类 + contract 固化 |
+| M1 RBAC 租户 | ✅ | 四级角色 + 默认 deny + auth 绑定 |
+| M2 Knowledge RBAC | ✅ | KB ACL + 工具权限 + 租户隔离 |
+| M3 LLM-Wiki | ✅ | BM25 + audit + redaction + scoped layout |
+| M4 ExecutionPlan | ✅ | 三协议统一 + permissions 收紧 |
+| M5 Workspace | ✅ | 生产 docker + path guard |
+| M6 Model Governance | ✅ | Capability + Router + allowlist |
+| M7 Langfuse | ✅ | NoopExporter + trace + redaction |
+
+详见 [开发路线图](./docs/xruntime/ENTERPRISE-RUNTIME-ROADMAP.md)。
+
+---
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request。请先阅读 [贡献指南](./CONTRIBUTING.md)。
+
+开发前请安装 pre-commit：
 ```bash
-git clone -b main https://github.com/agentscope-ai/agentscope.git
-cd agentscope/examples/agent_service
-
-# start the agent service backend
-python main.py
+pre-commit install
 ```
 
-Then open another terminal to start the web UI:
+## 许可证
 
-```bash
-cd agentscope/examples/web_ui
-
-# start the webui
-pnpm install
-pnpm dev
-```
-
-
-## Contributing
-
-We welcome contributions from the community! Please refer to our [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines
-on how to contribute.
-
-## License
-
-AgentScope is released under Apache License 2.0.
-
-## Publications
-
-If you find our work helpful for your research or application, please cite our papers.
-
-- [AgentScope 1.0: A Developer-Centric Framework for Building Agentic Applications](https://arxiv.org/abs/2508.16279)
-
-- [AgentScope: A Flexible yet Robust Multi-Agent Platform](https://arxiv.org/abs/2402.14034)
-
-```
-@article{agentscope_v1,
-    author  = {Dawei Gao, Zitao Li, Yuexiang Xie, Weirui Kuang, Liuyi Yao, Bingchen Qian, Zhijian Ma, Yue Cui, Haohao Luo, Shen Li, Lu Yi, Yi Yu, Shiqi He, Zhiling Luo, Wenmeng Zhou, Zhicheng Zhang, Xuguang He, Ziqian Chen, Weikai Liao, Farruh Isakulovich Kushnazarov, Yaliang Li, Bolin Ding, Jingren Zhou}
-    title   = {AgentScope 1.0: A Developer-Centric Framework for Building Agentic Applications},
-    journal = {CoRR},
-    volume  = {abs/2508.16279},
-    year    = {2025},
-}
-
-@article{agentscope,
-    author  = {Dawei Gao, Zitao Li, Xuchen Pan, Weirui Kuang, Zhijian Ma, Bingchen Qian, Fei Wei, Wenhao Zhang, Yuexiang Xie, Daoyuan Chen, Liuyi Yao, Hongyi Peng, Zeyu Zhang, Lin Zhu, Chen Cheng, Hongzhu Shi, Yaliang Li, Bolin Ding, Jingren Zhou}
-    title   = {AgentScope: A Flexible yet Robust Multi-Agent Platform},
-    journal = {CoRR},
-    volume  = {abs/2402.14034},
-    year    = {2024},
-}
-```
-
-## Contributors
-
-All thanks to our contributors:
-
-<a href="https://github.com/agentscope-ai/agentscope/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=agentscope-ai/agentscope&max=999&columns=12&anon=1" />
-</a>
+Apache License 2.0

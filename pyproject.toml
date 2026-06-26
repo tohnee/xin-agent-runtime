@@ -1,14 +1,14 @@
 
 [project]
-name = "agentscope"
+name = "xin-agent-runtime"
 dynamic = ["version"]
-description = "AgentScope: A Flexible yet Robust Multi-Agent Platform."
+description = "Xin Agent Runtime: Enterprise-grade agent runtime platform built on AgentScope and XRuntime."
 readme = "README.md"
 authors = [
-    { name = "SysML team of Alibaba Tongyi Lab", email = "gaodawei.gdw@alibaba-inc.com" }
+    { name = "Xin Agent Runtime Team" }
 ]
 license = "Apache-2.0"
-keywords = ["agent", "multi-agent", "LLM", "AI"]
+keywords = ["agent", "runtime", "enterprise", "multi-tenant", "RBAC", "LLM", "AI"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",

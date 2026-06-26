@@ -1,29 +1,43 @@
 # -*- coding: utf-8 -*-
-"""XRuntime — AgentScope optional extension for enterprise agent runtime.
+"""Xin Agent Runtime — enterprise agent runtime platform.
 
-XRuntime is NOT a standalone runtime.  It extends AgentScope with:
+Xin Agent Runtime is built on the AgentScope execution kernel and the
+XRuntime enterprise extension layer. It provides a complete enterprise
+agent runtime with protocol adapters, multi-tenant isolation, RBAC,
+knowledge base governance, workspace sandboxing, and observability.
+
+Core capabilities:
 
 - **Protocol adapters** — Anthropic Messages API, Claude Code SDK,
   OpenCode SDK wire formats, mounted as additional routes on the
-  AS FastAPI app.
+  FastAPI app.
+- **RuntimeExecutionPlan** — unified execution plan across all three
+  protocols with permissions tightening and metadata landing.
 - **Enterprise middlewares** — audit logging, quota control, RBAC,
-  secret redaction, injected via AS ``extra_agent_middlewares``.
-- **Multi-tenant isolation** — tenant key prefixing for Redis storage.
-- **DAG orchestrator** — declarative multi-agent workflow engine.
-- **Model resolver** — env-var/YAML declarative model provider config.
-- **YAML config schema** — declarative configuration with env overrides.
-- **Metrics** — Prometheus-compatible metrics collector.
+  secret redaction, knowledge injection.
+- **Multi-tenant isolation** — tenant key prefixing, per-request
+  tenant resolution, anti-spoofing via authenticated principal.
+- **RBAC** — Owner/Admin/Contributor/Viewer four-tier roles with
+  16 fine-grained actions, default deny.
+- **Knowledge base** — LLM-Wiki AOT compiler with BM25 retrieval,
+  per-KB ACL, audit log, secret redaction.
+- **Workspace** — Local/Docker/E2B backends with production safety
+  guard (rejects LocalWorkspace in production).
+- **Model governance** — ModelCapabilityRegistry + ModelRouter with
+  tenant allowlist and fallback.
+- **Observability** — OTel tracing, Prometheus metrics, Langfuse
+  exporter (optional, no-op by default).
 
 Usage::
 
-    from agentscope.app import create_app
     from xruntime import create_xruntime_extension, mount_protocol_adapters
+    from agentscope.app import create_app
 
     ext = create_xruntime_extension()
     app = create_app(
-        storage=RedisStorage(),
-        message_bus=RedisMessageBus(),
-        workspace_manager=LocalWorkspaceManager(),
+        storage=storage,
+        message_bus=message_bus,
+        workspace_manager=workspace_manager,
         extra_agent_middlewares=ext["extra_agent_middlewares"],
     )
     mount_protocol_adapters(app, ext["adapter_registry"])

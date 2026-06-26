@@ -1,13 +1,13 @@
-# XRuntime 企业级 Agent Runtime 重构、开发、测试与验收计划
+# Xin Agent Runtime 企业级 Agent 运行时开发与验收计划
 
-> 版本: v0.1.0  
+> 版本: v1.0.0  
 > 日期: 2026-06-25  
-> 状态: 规划稿  
-> 范围: AgentScope + XRuntime 企业级 Agent 开发运行时底座
+> 状态: 已实现  
+> 范围: Xin Agent Runtime（AgentScope 执行内核 + XRuntime 企业扩展层）
 
 ## 1. 背景与目标
 
-本仓库当前以 AgentScope 为 Agent 执行内核，并在其上增加 XRuntime 作为企业级运行时扩展层。现有代码已经具备以下基础：
+Xin Agent Runtime 基于 AgentScope 执行内核与 XRuntime 企业扩展层联合开发。AgentScope 提供 Agent、Model、Toolkit、Middleware、Workspace、Storage、MessageBus、FastAPI service 等核心运行能力；XRuntime 提供协议适配、企业中间件、多租户、RBAC、知识库治理、可观测性等企业级扩展。
 
 - AgentScope 提供 Agent、Model、Toolkit、Middleware、Workspace、Storage、MessageBus、FastAPI service 等核心运行能力。
 - XRuntime 提供协议适配、企业中间件、多租户 key prefix、DAG orchestrator、模型解析、YAML 配置、Prometheus-style metrics、知识库框架等扩展能力。

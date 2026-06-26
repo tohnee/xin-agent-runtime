@@ -1,14 +1,14 @@
-# XRuntime 企业部署实践手册
+# Xin Agent Runtime 企业部署实践手册
 
-> 版本: v0.2.0
-> 更新日期: 2026-06-24
-> 适用对象: 首次接触 XRuntime 的开发运维人员
+> 版本: v1.0.0
+> 更新日期: 2026-06-25
+> 适用对象: 首次接触 Xin Agent Runtime 的开发运维人员
 
 ---
 
 ## 目录
 
-1. [概述：XRuntime 是什么](#1-概述xruntime-是什么)
+1. [概述：Xin Agent Runtime 是什么](#1-概述xin-agent-runtime-是什么)
 2. [架构与组件关系](#2-架构与组件关系)
 3. [环境准备](#3-环境准备)
 4. [配置详解](#4-配置详解)
@@ -25,17 +25,19 @@
 
 ---
 
-## 1. 概述：XRuntime 是什么
+## 1. 概述：Xin Agent Runtime 是什么
 
-XRuntime 是 AgentScope（简称 AS）的企业级扩展层。**它不是独立的运行时**，而是挂在 AS 的 FastAPI 服务之上，增加：
+Xin Agent Runtime 是一个**企业级 Agent 开发运行时底座**，基于 AgentScope 执行内核与 XRuntime 企业扩展层联合开发。它提供：
 
 - **三种协议适配**：Anthropic Messages API、Claude Code SDK、OpenCode SDK
-- **四种企业中间件**：审计日志、配额管控、RBAC 权限、敏感数据脱敏
-- **多租户隔离**：基于 Redis Key 前缀的租户级数据隔离
-- **网关安全**：API Key 认证、滑动窗口限流
-- **可观测性**：Prometheus 指标采集、结构化审计日志
+- **企业中间件**：审计日志、配额管控、RBAC 权限、敏感数据脱敏、知识库注入
+- **多租户隔离**：基于 Redis Key 前缀的租户级数据隔离 + 认证绑定
+- **网关安全**：API Key / JWT 认证、滑动窗口限流、anti-spoofing
+- **知识库治理**：LLM-Wiki AOT 编译 + BM25 检索 + per-KB ACL
+- **Workspace 沙箱**：Local/Docker/E2B 后端 + 生产拒绝 local
+- **可观测性**：OTel tracing、Prometheus 指标、Langfuse、结构化审计日志
 
-**一句话理解**：AS 提供运行内核（Agent + ChatService + Storage），XRuntime 提供企业外壳（协议转换 + 安全 + 多租户 + 审计）。
+**架构定位**：AgentScope 提供运行内核（Agent + ChatService + Storage），XRuntime 提供企业外壳（协议转换 + 安全 + 多租户 + 审计），二者联合构成 Xin Agent Runtime。
 
 ---
 

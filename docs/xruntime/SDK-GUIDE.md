@@ -1,6 +1,7 @@
-# XRuntime SDK 使用指南
+# Xin Agent Runtime SDK 使用指南
 
-> 版本: v0.1.0
+> 版本: v1.0.0
+> 更新日期: 2026-06-25
 
 ## 安装
 
