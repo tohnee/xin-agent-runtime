@@ -1,7 +1,7 @@
-<!-- This is the source of truth for all NEWS items. -->
-<!-- The first 10 items are automatically synced to README.md and README_zh.md via GitHub Actions. -->
-<!-- To update news in READMEs, modify this file and push to trigger the workflow. -->
+# News
 
-- **[2026-06] `INTE`:** Mem0 supported. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/long_term_memory) | [Docs](https://docs.agentscope.io/v2)
-- **[2026-06] `FEAT`:** Agent Team supported. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/agent_service) | [Docs](https://docs.agentscope.io/v2/deploy/agent-team)
-- **[2026-05] `RELS`:** AgentScope 2.0 released! [Docs](https://docs.agentscope.io/)
+<!-- BEGIN NEWS -->
+- **[2026-06] `RELS`:** Xin Agent Runtime v1.0.0 released! 446 tests, 86% coverage, 10-layer security architecture. [Docs](https://github.com/tohnee/xin-agent-runtime)
+- **[2026-06] `FEAT`:** Enterprise roadmap M0-M7 all completed — RBAC, Knowledge BM25, ExecutionPlan, Workspace, Model Governance, Langfuse.
+- **[2026-06] `SEC`:** P0 security gaps fixed — AuthMiddleware wired, anti-spoofing, KB ACL enforcement, production workspace guard.
+<!-- END NEWS -->

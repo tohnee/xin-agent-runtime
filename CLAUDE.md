@@ -173,8 +173,8 @@ mount_protocol_adapters(app, ext["adapter_registry"])
 - `mem0` extra is pinned to `mem0ai>=2.0.0` (`Mem0Middleware` targets v2.x and
   degrades on v1.x). New deps go in the right optional group in `pyproject.toml`, not
   in `[project.dependencies]` unless truly core — discuss in an issue first.
-- User-facing docs live in a *separate* repo (`agentscope-ai/docs`); this repo holds
-  only inline docstrings, `README.md`, `examples/`, and `docs/xruntime/` phase reports.
+- User-facing docs live in this repo under `docs/xruntime/`; inline docstrings,
+  `README.md`, `examples/`, and phase reports are all here.
 
 ## Contributing a chat model (all four pieces required, or PR rejected)
 

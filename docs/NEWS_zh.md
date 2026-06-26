@@ -1,7 +1,7 @@
-<!-- This is the source of truth for all NEWS items. -->
-<!-- The first 10 items are automatically synced to README.md and README_zh.md via GitHub Actions. -->
-<!-- To update news in READMEs, modify this file and push to trigger the workflow. -->
+# 更新日志
 
-- **[2026-06] `集成`:** 集成 Mem0 长期记忆。 [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/long_term_memory) | [Docs](https://docs.agentscope.io/v2)
-- **[2026-06] `功能`:** 支持 Agent Team。[样例](https://github.com/agentscope-ai/agentscope/tree/main/examples/agent_service) | [文档](https://docs.agentscope.io/zh/v2/deploy/agent-team)
-- **[2026-05] `发布`:** AgentScope 2.0 已发布！[文档](https://docs.agentscope.io/)
+<!-- BEGIN NEWS -->
+- **[2026-06] `发布`:** Xin Agent Runtime v1.0.0 发布！446 个测试，86% 覆盖率，10 层安全架构。[文档](https://github.com/tohnee/xin-agent-runtime)
+- **[2026-06] `功能`:** 企业路线图 M0-M7 全部完成 — RBAC、Knowledge BM25、ExecutionPlan、Workspace、Model Governance、Langfuse。
+- **[2026-06] `安全`:** P0 安全缺口修复 — AuthMiddleware 接入、反欺骗、KB ACL 强制、生产 Workspace 保护。
+<!-- END NEWS -->

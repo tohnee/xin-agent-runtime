@@ -67,7 +67,7 @@ Reference: `agentscope/model/_anthropic/` + `agentscope/formatter/_anthropic_for
 
 Workspace class (subclass `WorkspaceBase`) under `agentscope.workspace` **and**
 a matching `WorkspaceManagerBase` in `agentscope/app/_manager/_workspace_manager.py`,
-plus a docs PR in the separate `agentscope-ai/docs` repo. Reference:
+plus a docs update in `docs/xruntime/` in this repo. Reference:
 `_local_workspace.py` / `LocalWorkspaceManager`.
 
 ## Dependency quirks
@@ -76,8 +76,8 @@ plus a docs PR in the separate `agentscope-ai/docs` repo. Reference:
   architecture and degrades on v1.x.
 - New deps: add to the right optional group in `pyproject.toml`, not to
   `[project.dependencies]` unless truly core. Discuss in an issue first.
-- User-facing docs live in a separate repo (`agentscope-ai/docs`); this
-  repo only holds inline docstrings, `README.md`, and `examples/`.
+- User-facing docs live in this repo under `docs/xruntime/`; this
+  repo holds inline docstrings, `README.md`, and `examples/`.
 
 ## Git / PR
 
