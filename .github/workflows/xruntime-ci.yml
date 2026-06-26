@@ -61,14 +61,14 @@ jobs:
             TOTAL_FILES=$((TOTAL_FILES + 1))
             echo "=== Running $f ==="
             OUTPUT=$(pytest "$f" -v --tb=short -p no:cacheprovider 2>&1)
+            RESULT=$?
             echo "$OUTPUT"
-            if echo "$OUTPUT" | grep -q " passed"; then
+            if [ $RESULT -ne 0 ]; then
+              echo "FAILED (exit $RESULT): $f"
+              FAIL=1
+            else
               PASS=$(echo "$OUTPUT" | tail -1 | grep -oP '\d+(?= passed)' || echo "0")
               TOTAL_PASS=$((TOTAL_PASS + PASS))
-            fi
-            if echo "$OUTPUT" | grep -qE "failed|error"; then
-              echo "FAILED: $f"
-              FAIL=1
             fi
           done
           echo ""
