@@ -1,19 +1,10 @@
-name: XRuntime CI
+name: Xin Agent Runtime CI
 
 on:
   push:
     branches: [main]
-    paths:
-      - "src/xruntime/**"
-      - "tests/xruntime/**"
-      - "src/agentscope/**"
-      - ".github/workflows/xruntime-ci.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "src/xruntime/**"
-      - "tests/xruntime/**"
-      - "src/agentscope/**"
 
 jobs:
   lint:
@@ -61,19 +52,24 @@ jobs:
           uv pip install -q -e .[dev]
           uv pip install pytest pytest-cov coverage
 
-      - name: Run XRuntime tests with coverage
+      - name: Run all 446 tests with coverage
         env:
           GRPC_VERBOSITY: ERROR
         run: |
-          pytest tests/xruntime -q \
+          pytest tests/xruntime -v \
             --cov=xruntime \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
             --cov-fail-under=80
 
-      - name: Run XRuntime integration tests
+      - name: Verify test count
         run: |
-          pytest tests/xruntime/integration -v
+          COUNT=$(pytest tests/xruntime --co -q 2>/dev/null | tail -1 | grep -oP '\d+' | head -1)
+          echo "Test count: $COUNT"
+          if [ "$COUNT" -lt 440 ]; then
+            echo "ERROR: Expected at least 440 tests, got $COUNT"
+            exit 1
+          fi
 
       - name: Upload coverage report
         if: matrix.os == 'ubuntu-latest'
@@ -82,7 +78,7 @@ jobs:
           name: xruntime-coverage-${{ matrix.python-version }}
           path: coverage.xml
 
-  security-check:
+  security-gate:
     name: Security Gate
     runs-on: ubuntu-latest
     steps:
@@ -97,26 +93,35 @@ jobs:
         run: |
           uv pip install -q -e .[dev]
 
-      - name: Run RBAC permission matrix tests
-        run: |
-          pytest tests/xruntime/test_rbac_policy.py tests/xruntime/test_rbac_defaults.py -v
+      - name: RBAC permission matrix
+        run: pytest tests/xruntime/test_rbac_policy.py tests/xruntime/test_rbac_defaults.py -v
 
-      - name: Run auth membership tests
-        run: |
-          pytest tests/xruntime/test_auth_membership.py -v
+      - name: Auth membership + anti-spoofing
+        run: pytest tests/xruntime/test_auth_membership.py -v
 
-      - name: Run knowledge ACL tests
-        run: |
-          pytest tests/xruntime/test_knowledge_acl.py tests/xruntime/test_knowledge_scope.py -v
+      - name: Knowledge ACL + scope isolation
+        run: pytest tests/xruntime/test_knowledge_acl.py tests/xruntime/test_knowledge_scope.py -v
 
-      - name: Run Phase 1 security tests
-        run: |
-          pytest tests/xruntime/test_phase1_security.py -v
+      - name: Phase 1 security (AuthMiddleware + KB ACL)
+        run: pytest tests/xruntime/test_phase1_security.py -v
 
-      - name: Run workspace + RBAC integration tests
-        run: |
-          pytest tests/xruntime/integration/test_workspace_rbac_integration.py -v
+      - name: Phase 2 LLM-Wiki (BM25 + audit + redaction)
+        run: pytest tests/xruntime/test_phase2_llm_wiki.py -v
 
-      - name: Run coverage gap tests
-        run: |
-          pytest tests/xruntime/test_coverage_gaps.py -v
+      - name: Phase 3 ExecutionPlan + permissions tightening
+        run: pytest tests/xruntime/test_phase3_execution_plan.py -v
+
+      - name: Phase 4-6 Workspace + Model + Langfuse
+        run: pytest tests/xruntime/test_phase4_6_workspace_model_langfuse.py -v
+
+      - name: Coverage gaps (_tools.py + _auth.py)
+        run: pytest tests/xruntime/test_coverage_gaps.py -v
+
+      - name: Remaining gaps (plan wiring + OpenCode schema + frontmatter + budget)
+        run: pytest tests/xruntime/test_phase_remaining_gaps.py -v
+
+      - name: Server workspace wiring
+        run: pytest tests/xruntime/test_server_workspace.py -v
+
+      - name: Workspace + RBAC integration (31 scenarios)
+        run: pytest tests/xruntime/integration/test_workspace_rbac_integration.py -v
