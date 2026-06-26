@@ -13,15 +13,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          uv pip install -q -e .[xruntime-dev]
-          uv pip install flake8 "black==23.3.0"
+          pip install -e ".[xruntime-dev]" flake8 "black==23.3.0"
 
       - name: Run flake8
         run: |
@@ -42,31 +41,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
-          uv pip install -q -e .[xruntime-dev]
+          pip install -e ".[xruntime-dev]"
 
-      - name: Run all tests
+      - name: Run all XRuntime tests
         env:
           GRPC_VERBOSITY: ERROR
         run: |
-          # Run tests file by file to avoid test pollution
-          FAIL=0
-          for f in $(find tests/xruntime -name 'test_*.py' -not -path '*/integration/*' | sort); do
-            echo "=== Running $f ==="
-            pytest "$f" -v -p no:cacheprovider || FAIL=1
-          done
-          # Run integration tests
-          for f in $(find tests/xruntime/integration -name 'test_*.py' | sort); do
-            echo "=== Running $f ==="
-            pytest "$f" -v -p no:cacheprovider || FAIL=1
-          done
-          exit $FAIL
+          pytest tests/xruntime -v --tb=short -p no:cacheprovider
 
       - name: Run coverage (best-effort)
         continue-on-error: true
@@ -120,14 +108,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          uv pip install -q -e .[xruntime-dev]
+          pip install -e ".[xruntime-dev]"
 
       - name: RBAC permission matrix
         run: pytest tests/xruntime/test_rbac_policy.py tests/xruntime/test_rbac_defaults.py -v
