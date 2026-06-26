@@ -637,9 +637,7 @@ class TestAuditInputType:
 
         tool_call = MagicMock()
         tool_call.name = "Bash"
-        tool_call.input = (
-            '{"command": "curl -H Bearer sk-' + "a" * 30 + '"}'
-        )
+        tool_call.input = '{"command": "curl -H Bearer sk-' + "a" * 30 + '"}'
 
         agent = MagicMock()
         agent.state = MagicMock()
@@ -692,9 +690,7 @@ class TestRedactionToolInput:
 
         class _ToolCall:
             def __init__(self) -> None:
-                self.input = (
-                    '{"command": "echo sk-' + "b" * 30 + '"}'
-                )
+                self.input = '{"command": "echo sk-' + "b" * 30 + '"}'
 
         tool_call = _ToolCall()
 

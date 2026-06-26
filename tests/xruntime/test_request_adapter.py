@@ -168,9 +168,7 @@ class TestAdapterRegistry:
                     prompt="dummy",
                 )
 
-            async def serialize_event_stream(
-                self, events: object
-            ) -> object:
+            async def serialize_event_stream(self, events: object) -> object:
                 yield b""
 
         registry = AdapterRegistry()
@@ -192,9 +190,7 @@ class TestAdapterRegistry:
             async def parse_request(self, raw: object) -> XRuntimeRequest:
                 ...
 
-            async def serialize_event_stream(
-                self, events: object
-            ) -> object:
+            async def serialize_event_stream(self, events: object) -> object:
                 ...
 
         class DummyB(ProtocolAdapter):
@@ -203,9 +199,7 @@ class TestAdapterRegistry:
             async def parse_request(self, raw: object) -> XRuntimeRequest:
                 ...
 
-            async def serialize_event_stream(
-                self, events: object
-            ) -> object:
+            async def serialize_event_stream(self, events: object) -> object:
                 ...
 
         registry = AdapterRegistry()
@@ -224,9 +218,7 @@ class TestAdapterRegistry:
             async def parse_request(self, raw: object) -> XRuntimeRequest:
                 ...
 
-            async def serialize_event_stream(
-                self, events: object
-            ) -> object:
+            async def serialize_event_stream(self, events: object) -> object:
                 ...
 
         class DummyB(ProtocolAdapter):
@@ -235,9 +227,7 @@ class TestAdapterRegistry:
             async def parse_request(self, raw: object) -> XRuntimeRequest:
                 ...
 
-            async def serialize_event_stream(
-                self, events: object
-            ) -> object:
+            async def serialize_event_stream(self, events: object) -> object:
                 ...
 
         registry = AdapterRegistry()

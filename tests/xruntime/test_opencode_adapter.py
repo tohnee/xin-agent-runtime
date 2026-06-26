@@ -37,6 +37,7 @@ class TestOpenCodeAdapterBasics:
     def test_is_subclass(self) -> None:
         """Should be a ProtocolAdapter subclass."""
         from xruntime._gateway._adapter import ProtocolAdapter
+
         assert issubclass(OpenCodeAdapter, ProtocolAdapter)
 
 

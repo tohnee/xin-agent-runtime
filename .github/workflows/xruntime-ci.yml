@@ -20,7 +20,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install -q -e .[dev]
+          uv pip install -q -e .[xruntime-dev]
           uv pip install flake8 black
 
       - name: Run flake8
@@ -29,7 +29,7 @@ jobs:
 
       - name: Run black check
         run: |
-          black --line-length=79 --check src/xruntime
+          black --line-length=79 --check src/xruntime tests/xruntime
 
   test:
     name: Tests (Python ${{ matrix.python-version }} on ${{ matrix.os }})
@@ -49,10 +49,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install -q -e .[dev]
+          uv pip install -q -e .[xruntime-dev]
           uv pip install pytest pytest-cov coverage
 
-      - name: Run all 446 tests with coverage
+      - name: Run all tests with coverage
         env:
           GRPC_VERBOSITY: ERROR
         run: |
@@ -91,7 +91,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install -q -e .[dev]
+          uv pip install -q -e .[xruntime-dev]
 
       - name: RBAC permission matrix
         run: pytest tests/xruntime/test_rbac_policy.py tests/xruntime/test_rbac_defaults.py -v

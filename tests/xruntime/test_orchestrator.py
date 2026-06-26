@@ -335,6 +335,7 @@ class TestOrchestrator:
 
     async def test_failure_aborts(self) -> None:
         """Failure with abort strategy should stop workflow."""
+
         async def failing_executor(
             step: WorkflowStep,
             context: dict[str, Any],
@@ -402,6 +403,7 @@ class TestOrchestrator:
 
     async def test_context_passing(self) -> None:
         """Step results should be available to dependent steps."""
+
         async def mock_executor(
             step: WorkflowStep,
             context: dict[str, Any],

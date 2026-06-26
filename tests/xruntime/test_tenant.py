@@ -96,6 +96,7 @@ class TestTenantContext:
         implementation let one task's ``set()`` clobber another's.
         """
         import asyncio
+
         ctx = TenantContext()
         results: dict[str, str] = {}
 
@@ -117,6 +118,7 @@ class TestTenantContext:
     async def test_context_manager_restores_after_await(self) -> None:
         """Context manager should restore tenant after an await."""
         import asyncio
+
         ctx = TenantContext()
         ctx.set("before")
 
@@ -134,12 +136,14 @@ class TestTenantContext:
         Another regression test for Bug 2.
         """
         import threading
+
         ctx = TenantContext()
         errors: list[str] = []
 
         def worker(tenant: str) -> None:
             ctx.set(tenant)
             import time
+
             time.sleep(0.01)
             got = ctx.get()
             if got != tenant:
