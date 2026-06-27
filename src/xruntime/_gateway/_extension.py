@@ -177,8 +177,44 @@ def create_xruntime_extension(
         from .._runtime._middleware._redaction import (
             SecretRedactionMiddleware,
         )
+        from .._runtime._middleware._loop_detection import (
+            LoopDetectionConfig,
+            LoopDetectionMiddleware,
+        )
+        from .._runtime._middleware._llm_error_handling import (
+            LLMErrorHandlingConfig,
+            LLMErrorHandlingMiddleware,
+        )
+        from .._runtime._middleware._langfuse_tracer import (
+            LangfuseTracerMiddleware,
+        )
 
         middlewares: list[Any] = []
+
+        # --- Langfuse tracing (always added, no-op when disabled) ---
+        langfuse_exporter = await state_cache.get_langfuse_exporter()
+        middlewares.append(
+            LangfuseTracerMiddleware(
+                exporter=langfuse_exporter,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                session_id=session_id,
+            )
+        )
+
+        # --- Loop detection ---
+        middlewares.append(
+            LoopDetectionMiddleware(
+                LoopDetectionConfig(),
+            )
+        )
+
+        # --- LLM error handling ---
+        middlewares.append(
+            LLMErrorHandlingMiddleware(
+                LLMErrorHandlingConfig(),
+            )
+        )
 
         if config.observability.audit_enabled:
             audit_logger = await state_cache.get_audit_logger()

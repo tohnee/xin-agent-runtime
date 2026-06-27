@@ -49,6 +49,7 @@ class MiddlewareStateCache:
         self._knowledge_mw: Any | None = None
         self._knowledge_registry: Any | None = None
         self._metrics: Any | None = None
+        self._langfuse_exporter: Any | None = None
         self._lock = asyncio.Lock()
 
     @property
@@ -65,6 +66,31 @@ class MiddlewareStateCache:
 
             self._metrics = MetricsCollector()
         return self._metrics
+
+    async def get_langfuse_exporter(self) -> Any:
+        """Return the shared Langfuse exporter, creating it on first use.
+
+        When Langfuse is disabled or not installed, returns a
+        no-op exporter so the middleware chain is unaffected.
+
+        Returns:
+            `LangfuseExporter`: The shared exporter.
+        """
+        if self._langfuse_exporter is not None:
+            return self._langfuse_exporter
+        async with self._lock:
+            if self._langfuse_exporter is not None:
+                return self._langfuse_exporter
+            from .._runtime._langfuse import LangfuseConfig, LangfuseExporter
+
+            lf_cfg = LangfuseConfig(
+                enabled=self._config.observability.langfuse_enabled,
+                host=self._config.observability.langfuse_host,
+                public_key=self._config.observability.langfuse_public_key,
+                secret_key=self._config.observability.langfuse_secret_key,
+            )
+            self._langfuse_exporter = LangfuseExporter(lf_cfg)
+            return self._langfuse_exporter
 
     async def get_audit_logger(self) -> Any:
         """Return the shared audit logger, creating it on first use.

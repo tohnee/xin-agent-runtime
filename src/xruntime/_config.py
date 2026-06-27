@@ -225,6 +225,10 @@ class ObservabilityConfig(BaseModel):
     otel_endpoint: str = ""
     audit_enabled: bool = True
     audit_storage: str = "file"
+    langfuse_enabled: bool = False
+    langfuse_host: str = ""
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
 
 
 class KnowledgeConfig(BaseModel):
