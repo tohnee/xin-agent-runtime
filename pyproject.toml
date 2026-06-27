@@ -125,9 +125,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/agentscope-ai/agentscope"
-Documentation = "https://doc.agentscope.io/"
-Repository = "https://github.com/agentscope-ai/agentscope"
+Homepage = "https://github.com/tohnee/xin-agent-runtime"
+Documentation = "https://github.com/tohnee/xin-agent-runtime/tree/main/docs/xruntime"
+Repository = "https://github.com/tohnee/xin-agent-runtime"
 
 [tool.setuptools]
 packages = { find = { where = ["src"] } }
