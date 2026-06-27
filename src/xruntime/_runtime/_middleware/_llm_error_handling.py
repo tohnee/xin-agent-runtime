@@ -70,6 +70,9 @@ class LLMErrorHandlingConfig:
         fallback_model: str = "",
         circuit_breaker_threshold: int = 5,
         circuit_breaker_reset_time: float = 60.0,
+        timeout_seconds: float = 120.0,
+        timeout_retries: int = 2,
+        timeout_retry_delay: float = 5.0,
     ) -> None:
         """Initialize config."""
         self.max_retries = max_retries
@@ -79,6 +82,9 @@ class LLMErrorHandlingConfig:
         self.fallback_model = fallback_model
         self.circuit_breaker_threshold = circuit_breaker_threshold
         self.circuit_breaker_reset_time = circuit_breaker_reset_time
+        self.timeout_seconds = timeout_seconds
+        self.timeout_retries = timeout_retries
+        self.timeout_retry_delay = timeout_retry_delay
 
 
 class LLMErrorHandlingMiddleware(MiddlewareBase):
@@ -137,9 +143,19 @@ class LLMErrorHandlingMiddleware(MiddlewareBase):
         self._check_circuit()
 
         last_error: Exception | None = None
-        for attempt in range(self._config.max_retries + 1):
+        total_attempts = (
+            max(
+                self._config.max_retries,
+                self._config.timeout_retries,
+            )
+            + 1
+        )
+        for attempt in range(total_attempts):
             try:
-                result = await next_handler()
+                result = await asyncio.wait_for(
+                    next_handler(),
+                    timeout=self._config.timeout_seconds,
+                )
                 self._on_success()
                 if attempt > 0:
                     logger.info(
@@ -147,6 +163,42 @@ class LLMErrorHandlingMiddleware(MiddlewareBase):
                         attempt,
                     )
                 return result
+            except asyncio.TimeoutError as exc:
+                last_error = exc
+                self._total_failures += 1
+                self._timeout_count = (
+                    getattr(
+                        self,
+                        "_timeout_count",
+                        0,
+                    )
+                    + 1
+                )
+                logger.warning(
+                    "model call TIMEOUT (attempt %d, %.0fs). "
+                    "Timeout retries: %d/%d",
+                    attempt + 1,
+                    self._config.timeout_seconds,
+                    self._timeout_count,
+                    self._config.timeout_retries,
+                )
+                if self._timeout_count <= self._config.timeout_retries:
+                    delay = self._config.timeout_retry_delay
+                    self._total_retries += 1
+                    logger.warning(
+                        "retrying timeout in %.1fs",
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(
+                        "model call timed out after %d timeout "
+                        "retries (%.0fs each)",
+                        self._config.timeout_retries,
+                        self._config.timeout_seconds,
+                    )
+                    self._on_failure()
+                    raise last_error
             except Exception as exc:
                 last_error = exc
                 self._total_failures += 1
@@ -183,8 +235,7 @@ class LLMErrorHandlingMiddleware(MiddlewareBase):
             else:
                 logger.debug(
                     "circuit breaker OPEN, %.0fs remaining",
-                    self._config.circuit_breaker_reset_time
-                    - elapsed,
+                    self._config.circuit_breaker_reset_time - elapsed,
                 )
                 raise CircuitBreakerOpenError(
                     self._config.circuit_breaker_reset_time - elapsed
