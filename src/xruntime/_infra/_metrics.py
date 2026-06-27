@@ -29,6 +29,7 @@ class MetricsCollector:
         self._tokens: dict[str, dict[str, int]] = defaultdict(
             lambda: {"input": 0, "output": 0},
         )
+        self._subagent_calls: dict[str, dict[str, Any]] = {}
 
     def record_session_start(self, tenant_id: str) -> None:
         """Record a session start.
@@ -132,6 +133,76 @@ class MetricsCollector:
         """
         return dict(self._tokens.get(tenant_id, {"input": 0, "output": 0}))
 
+    def record_subagent_call(
+        self,
+        spec_name: str,
+        duration_seconds: float,
+        success: bool,
+        token_usage: int = 0,
+    ) -> None:
+        """Record a sub-agent execution.
+
+        Args:
+            spec_name (`str`):
+                The sub-agent spec name.
+            duration_seconds (`float`):
+                Execution duration in seconds.
+            success (`bool`):
+                Whether the execution succeeded.
+            token_usage (`int`):
+                Tokens consumed by the sub-agent.
+        """
+        key = spec_name
+        if key not in self._subagent_calls:
+            self._subagent_calls[key] = {
+                "count": 0,
+                "successes": 0,
+                "failures": 0,
+                "total_duration": 0.0,
+                "total_tokens": 0,
+            }
+        stats = self._subagent_calls[key]
+        stats["count"] += 1
+        if success:
+            stats["successes"] += 1
+        else:
+            stats["failures"] += 1
+        stats["total_duration"] += duration_seconds
+        stats["total_tokens"] += token_usage
+
+    def subagent_stats(self, spec_name: str) -> dict[str, Any]:
+        """Get sub-agent execution statistics.
+
+        Args:
+            spec_name (`str`): The sub-agent spec name.
+
+        Returns:
+            `dict`: Stats with count, successes, failures,
+                avg_duration, total_tokens.
+        """
+        stats = self._subagent_calls.get(
+            spec_name,
+            {
+                "count": 0,
+                "successes": 0,
+                "failures": 0,
+                "total_duration": 0.0,
+                "total_tokens": 0,
+            },
+        )
+        avg = (
+            stats["total_duration"] / stats["count"]
+            if stats["count"] > 0
+            else 0.0
+        )
+        return {
+            "count": stats["count"],
+            "successes": stats["successes"],
+            "failures": stats["failures"],
+            "avg_duration_seconds": avg,
+            "total_tokens": stats["total_tokens"],
+        }
+
     def export_prometheus(self) -> str:
         """Export all metrics in Prometheus text format.
 
@@ -169,6 +240,51 @@ class MetricsCollector:
             lines.append(
                 f'xruntime_tokens_total{{tenant="{tid}",type="output"}} '
                 f'{totals["output"]}',
+            )
+
+        # Sub-agent executions
+        lines.append(
+            "# HELP xruntime_subagent_calls_total "
+            "Total sub-agent executions"
+        )
+        lines.append("# TYPE xruntime_subagent_calls_total counter")
+        for spec, stats in self._subagent_calls.items():
+            lines.append(
+                f"xruntime_subagent_calls_total"
+                f'{{spec="{spec}",status="success"}} '
+                f'{stats["successes"]}',
+            )
+            lines.append(
+                f"xruntime_subagent_calls_total"
+                f'{{spec="{spec}",status="failure"}} '
+                f'{stats["failures"]}',
+            )
+
+        lines.append(
+            "# HELP xruntime_subagent_duration_seconds "
+            "Sub-agent execution duration"
+        )
+        lines.append("# TYPE xruntime_subagent_duration_seconds summary")
+        for spec, stats in self._subagent_calls.items():
+            avg = (
+                stats["total_duration"] / stats["count"]
+                if stats["count"] > 0
+                else 0.0
+            )
+            lines.append(
+                f"xruntime_subagent_duration_seconds"
+                f'{{spec="{spec}"}} {avg:.4f}',
+            )
+
+        lines.append(
+            "# HELP xruntime_subagent_tokens_total "
+            "Total tokens consumed by sub-agents"
+        )
+        lines.append("# TYPE xruntime_subagent_tokens_total counter")
+        for spec, stats in self._subagent_calls.items():
+            lines.append(
+                f"xruntime_subagent_tokens_total"
+                f'{{spec="{spec}"}} {stats["total_tokens"]}',
             )
 
         return "\n".join(lines) + "\n"
