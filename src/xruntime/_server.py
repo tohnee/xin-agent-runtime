@@ -306,6 +306,23 @@ def _mount_health_routes(app: Any) -> None:
     app.add_api_route("/health", _health, methods=["GET"])
     app.add_api_route("/ready", _ready, methods=["GET"])
 
+    # Prometheus metrics endpoint
+    async def _metrics() -> Any:
+        from starlette.responses import PlainTextResponse
+
+        collector = getattr(app.state, "metrics", None)
+        if collector is None:
+            return PlainTextResponse(
+                "# metrics collector not initialized\n",
+                media_type="text/plain",
+            )
+        return PlainTextResponse(
+            collector.export_prometheus(),
+            media_type="text/plain",
+        )
+
+    app.add_api_route("/metrics", _metrics, methods=["GET"])
+
 
 def main() -> None:
     """Run the XRuntime server."""

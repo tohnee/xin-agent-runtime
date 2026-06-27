@@ -281,6 +281,41 @@ def create_xruntime_extension(
 
     plugin_registry = _load_plugins(config, registry)
 
+    # --- Initialize new modules ---
+    # SkillRegistry: discover skills from skills/public/ and skills/custom/
+    import os
+
+    skill_dirs: list[str] = []
+    project_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    )
+    public_skills = os.path.join(project_root, "skills", "public")
+    custom_skills = os.path.join(project_root, "skills", "custom")
+    if os.path.isdir(public_skills):
+        skill_dirs.append(public_skills)
+    if os.path.isdir(custom_skills):
+        skill_dirs.append(custom_skills)
+
+    from .._runtime._skills import SkillRegistry
+
+    skill_registry = SkillRegistry(skill_dirs=skill_dirs)
+    skill_registry.discover()
+
+    # MemoryStore: per-tenant memory with hybrid retrieval
+    from .._runtime._memory._store import MemoryStore
+
+    memory_store = MemoryStore(min_confidence=0.3)
+
+    # SubAgentExecutor: default specs from config (empty by default)
+    from .._runtime._subagents import SubAgentExecutor
+
+    subagent_executor = SubAgentExecutor(
+        specs=[],
+        max_concurrent=config.subagent_max_concurrent
+        if hasattr(config, "subagent_max_concurrent")
+        else 3,
+    )
+
     return {
         "extra_agent_middlewares": middleware_factory,
         "adapter_registry": registry,
@@ -288,6 +323,9 @@ def create_xruntime_extension(
         "model_resolver": model_resolver,
         "middleware_state_cache": state_cache,
         "plugin_registry": plugin_registry,
+        "skill_registry": skill_registry,
+        "memory_store": memory_store,
+        "subagent_executor": subagent_executor,
     }
 
 
