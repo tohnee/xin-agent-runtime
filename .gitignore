@@ -159,3 +159,11 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+# Xin Agent Runtime
+coverage.json
+.coverage
+xruntime-workspaces/
+xruntime.yaml
+.env.example.bak
+*.log
+/tmp/xin-agent-runtime.log
