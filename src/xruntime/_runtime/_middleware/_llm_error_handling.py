@@ -7,6 +7,7 @@ fallback, and a circuit breaker to prevent cascading failures.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from enum import Enum
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Awaitable, Callable
@@ -16,6 +17,8 @@ from agentscope.middleware import MiddlewareBase
 if TYPE_CHECKING:
     from agentscope.agent import Agent
     from agentscope.model import ChatResponse
+
+logger = logging.getLogger("xruntime.middleware.llm_error_handling")
 
 
 class CircuitState(Enum):
@@ -138,6 +141,11 @@ class LLMErrorHandlingMiddleware(MiddlewareBase):
             try:
                 result = await next_handler()
                 self._on_success()
+                if attempt > 0:
+                    logger.info(
+                        "model call succeeded after %d retries",
+                        attempt,
+                    )
                 return result
             except Exception as exc:
                 last_error = exc
@@ -145,8 +153,21 @@ class LLMErrorHandlingMiddleware(MiddlewareBase):
                 if attempt < self._config.max_retries:
                     delay = self._compute_delay(attempt)
                     self._total_retries += 1
+                    logger.warning(
+                        "model call failed (attempt %d/%d): "
+                        "%s. Retrying in %.1fs",
+                        attempt + 1,
+                        self._config.max_retries,
+                        type(exc).__name__,
+                        delay,
+                    )
                     await asyncio.sleep(delay)
                 else:
+                    logger.error(
+                        "model call failed after %d retries: %s",
+                        self._config.max_retries,
+                        type(exc).__name__,
+                    )
                     self._on_failure()
 
         if last_error:
@@ -157,17 +178,24 @@ class LLMErrorHandlingMiddleware(MiddlewareBase):
         if self._circuit_state == CircuitState.OPEN:
             elapsed = time.time() - self._circuit_opened_at
             if elapsed >= self._config.circuit_breaker_reset_time:
+                logger.info("circuit breaker: OPEN → HALF_OPEN")
                 self._circuit_state = CircuitState.HALF_OPEN
             else:
+                logger.debug(
+                    "circuit breaker OPEN, %.0fs remaining",
+                    self._config.circuit_breaker_reset_time
+                    - elapsed,
+                )
                 raise CircuitBreakerOpenError(
                     self._config.circuit_breaker_reset_time - elapsed
                 )
 
     def _on_success(self) -> None:
-        """Record a successful call."""
+        """Record a successful call (internal)."""
         self._consecutive_failures = 0
         self._total_successes += 1
         if self._circuit_state == CircuitState.HALF_OPEN:
+            logger.info("circuit breaker: HALF_OPEN → CLOSED")
             self._circuit_state = CircuitState.CLOSED
 
     def _on_failure(self) -> None:
@@ -179,6 +207,12 @@ class LLMErrorHandlingMiddleware(MiddlewareBase):
         ):
             self._circuit_state = CircuitState.OPEN
             self._circuit_opened_at = time.time()
+            logger.error(
+                "circuit breaker: CLOSED → OPEN "
+                "(failures=%d, threshold=%d)",
+                self._consecutive_failures,
+                self._config.circuit_breaker_threshold,
+            )
 
     # -- Public test-friendly API --
 

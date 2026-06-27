@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from collections import deque
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable
 
@@ -17,6 +18,8 @@ from agentscope.middleware import MiddlewareBase
 
 if TYPE_CHECKING:
     from agentscope.agent import Agent
+
+logger = logging.getLogger("xruntime.middleware.loop_detection")
 
 
 class LoopDetectionConfig:
@@ -109,9 +112,25 @@ class LoopDetectionMiddleware(MiddlewareBase):
 
         repeat_count = sum(1 for item in self._history if item == current)
 
+        if repeat_count > 1:
+            logger.debug(
+                "tool=%s repeat_count=%d/%d window=%d",
+                tool_name,
+                repeat_count,
+                self._config.max_repeats,
+                len(self._history),
+            )
+
         looped = repeat_count > self._config.max_repeats
 
         if looped:
+            logger.warning(
+                "LOOP DETECTED: tool=%s repeated %d times "
+                "(max=%d). Injecting break message.",
+                tool_name,
+                repeat_count,
+                self._config.max_repeats,
+            )
             from agentscope.message import Msg
 
             yield Msg(
