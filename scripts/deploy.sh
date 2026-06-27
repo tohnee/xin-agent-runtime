@@ -63,6 +63,9 @@ init_redis() {
         else
             REDIS_PASSWORD="${REDIS_PASSWORD:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(16))')}"
             info "Redis 密码: $REDIS_PASSWORD"
+            info "拉取 Redis 镜像..."
+            docker pull redis:7-alpine 2>&1 | tail -2
+            info "启动 Redis 容器 (端口 6379)..."
             docker run -d \
                 --name "$REDIS_CONTAINER" \
                 -p 6379:6379 \
@@ -71,7 +74,21 @@ init_redis() {
                 redis-server --requirepass "$REDIS_PASSWORD" \
                               --maxmemory 512mb \
                               --maxmemory-policy allkeys-lru \
-                              --appendonly yes
+                              --appendonly yes \
+                              --loglevel verbose
+            info "等待 Redis 容器就绪..."
+            for i in $(seq 1 10); do
+                if docker exec "$REDIS_CONTAINER" redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null | grep -q PONG; then
+                    info "Redis 容器已就绪 (耗时 ${i}s)"
+                    break
+                fi
+                sleep 1
+            done
+            # 输出容器状态和端口映射
+            info "容器状态:"
+            docker ps --filter "name=${REDIS_CONTAINER}" --format "  {{.Status}} | {{.Ports}}"
+            info "Redis 日志 (最后 5 行):"
+            docker logs --tail 5 "$REDIS_CONTAINER" 2>&1 | sed 's/^/  /'
             export REDIS_PASSWORD
         fi
     else
@@ -199,6 +216,7 @@ start_service() {
     fi
 
     # 后台启动
+    info "启动 Xin Agent Runtime (端口 ${RUNTIME_PORT})..."
     nohup python3 -m xruntime._server > /tmp/xin-agent-runtime.log 2>&1 &
     local pid=$!
     info "服务 PID: $pid"
@@ -222,10 +240,34 @@ start_service() {
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             return 0
         fi
+        # 每 5 秒输出一次状态
+        if [ $((i % 5)) -eq 0 ]; then
+            warn "仍在等待... (${i}s) 检查端口和日志:"
+            info "  端口 ${RUNTIME_PORT} 状态:"
+            if command -v lsof >/dev/null 2>&1; then
+                lsof -i :${RUNTIME_PORT} 2>/dev/null | head -3 | sed 's/^/    /' || echo "    端口未占用"
+            elif command -v netstat >/dev/null 2>&1; then
+                netstat -tlnp 2>/dev/null | grep ":${RUNTIME_PORT}" | sed 's/^/    /' || echo "    端口未占用"
+            fi
+            info "  服务日志 (最后 3 行):"
+            tail -3 /tmp/xin-agent-runtime.log 2>/dev/null | sed 's/^/    /' || echo "    无日志"
+        fi
         sleep 1
     done
 
-    error "服务启动超时，请检查日志: /tmp/xin-agent-runtime.log"
+    # 启动失败的详细排查
+    error "服务启动超时 (30s)"
+    echo ""
+    warn "排查建议:"
+    echo "  1. 检查日志: tail -50 /tmp/xin-agent-runtime.log"
+    echo "  2. 检查端口: lsof -i :${RUNTIME_PORT}"
+    echo "  3. 检查 Redis: redis-cli ping"
+    echo "  4. 检查配置: cat $PROJECT_DIR/xruntime.yaml"
+    echo "  5. 检查环境: cat $PROJECT_DIR/.env"
+    echo ""
+    warn "最后 10 行日志:"
+    tail -10 /tmp/xin-agent-runtime.log 2>/dev/null | sed 's/^/  /'
+    exit 1
 }
 
 # ── 主流程 ──

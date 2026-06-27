@@ -1,0 +1,78 @@
+version: "3.8"
+
+services:
+  # ── Redis: AgentScope Storage + MessageBus ──
+  redis:
+    image: redis:7-alpine
+    container_name: xin-redis
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-xruntime-redis-dev}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --loglevel verbose
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-xruntime-redis-dev}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Xin Agent Runtime: 内核 + 扩展层 ──
+  runtime:
+    build: .
+    container_name: xin-runtime
+    ports:
+      - "${XRUNTIME_PORT:-8900}:8900"
+    environment:
+      # 生产配置
+      XRUNTIME_PRODUCTION: "1"
+      XRUNTIME_WORKSPACE_BACKEND: "docker"
+      XRUNTIME_RATE_LIMIT: "100/60"
+
+      # 认证
+      XRUNTIME_API_KEY_RECORDS: ${API_KEY_RECORDS}
+      XRUNTIME_JWT_SECRET: ${JWT_SECRET}
+
+      # Redis 连接
+      XRUNTIME_STORAGE_REDIS_HOST: redis
+      XRUNTIME_STORAGE_REDIS_PORT: "6379"
+      XRUNTIME_STORAGE_REDIS_PASSWORD: ${REDIS_PASSWORD:-xruntime-redis-dev}
+      XRUNTIME_MESSAGE_BUS_REDIS_HOST: redis
+      XRUNTIME_MESSAGE_BUS_REDIS_PORT: "6379"
+
+      # 配置文件
+      XRUNTIME_CONFIG: /app/xruntime.yaml
+    volumes:
+      - ./xruntime.yaml:/app/xruntime.yaml:ro
+      - ./xruntime-workspaces:/app/xruntime-workspaces
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker-in-Docker for workspace sandbox
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8900/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  redis-data:
+    driver: local
