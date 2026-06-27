@@ -1,0 +1,27 @@
+name: data-analysis
+description: >
+  Analyze datasets with Python, create visualizations, and
+  generate reports. Use when working with CSV/Excel files or
+  statistical analysis.
+version: "1.0.0"
+allowed_tools: [bash, read_file, write_file]
+permissions: [filesystem:read_write]
+instructions: |
+  # Data Analysis Skill
+
+  ## When to Use
+  - User provides CSV/Excel data for analysis
+  - Statistical analysis or data visualization needed
+  - Data cleaning or transformation required
+
+  ## Workflow
+  1. Load and inspect the dataset
+  2. Clean and preprocess data
+  3. Perform exploratory data analysis
+  4. Create visualizations if needed
+  5. Generate a summary report with key insights
+
+  ## Tools
+  - Use pandas for data manipulation
+  - Use matplotlib/seaborn for visualization
+  - Use scipy for statistical tests
