@@ -21,9 +21,20 @@ class TaskTool:
             The sub-agent executor to dispatch tasks through.
     """
 
-    def __init__(self, executor: SubAgentExecutor) -> None:
-        """Initialize the tool."""
+    def __init__(
+        self,
+        executor: SubAgentExecutor,
+        default_runner: Any | None = None,
+    ) -> None:
+        """Initialize the tool.
+
+        Args:
+            executor: The sub-agent executor.
+            default_runner: Optional default runner to use
+                when no runner is passed to execute().
+        """
         self._executor = executor
+        self._default_runner = default_runner
         self.name = "task"
         self.description = (
             "Delegate a task to a sub-agent. "
@@ -51,7 +62,10 @@ class TaskTool:
             spec_name=subagent,
             objective=description,
         )
-        result = await self._executor.execute(task)
+        result = await self._executor.execute(
+            task,
+            runner=self._default_runner,
+        )
         response: dict[str, Any] = {
             "summary": result.summary,
             "success": result.success,
