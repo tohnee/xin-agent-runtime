@@ -19,6 +19,7 @@ actual retrieval/ingestion operations.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, AsyncGenerator, Callable
 
 from agentscope.middleware import MiddlewareBase
@@ -31,6 +32,8 @@ from agentscope.event import (
 
 from ._base import KnowledgeQuery
 from ._registry import KnowledgeRegistry
+
+logger = logging.getLogger(__name__)
 
 
 def _extract_query_text(inputs: Any) -> str:
@@ -178,6 +181,9 @@ class KnowledgeMiddleware(MiddlewareBase):
             nothing to inject.
         """
         if not query_text.strip():
+            logger.debug(
+                f"[KNOWLEDGE-RETRIEVE] Empty query text, skipping",
+            )
             return None
 
         query = KnowledgeQuery(
@@ -188,14 +194,40 @@ class KnowledgeMiddleware(MiddlewareBase):
             kb_ids=list(self.kb_ids),
         )
 
+        logger.info(
+            f"[KNOWLEDGE-RETRIEVE] tenant={self.tenant_id}, "
+            f"user={self.user_id}, kb_ids={self.kb_ids}, "
+            f"top_k={self.top_k}, query='{query_text[:100]}...'",
+        )
+
         try:
             result = await self.registry.retrieve(query)
-        except Exception:  # noqa: BLE001
+            logger.info(
+                f"[KNOWLEDGE-RESULT] tenant={self.tenant_id}, "
+                f"total_found={result.total_found}, "
+                f"chunks_returned={len(result.chunks)}, "
+                f"latency_ms={result.latency_ms}",
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.error(
+                f"[KNOWLEDGE-ERROR] tenant={self.tenant_id}, "
+                f"retrieval failed: {e}",
+                exc_info=True,
+            )
             return None
 
         context_text = result.to_context_text()
         if not context_text:
+            logger.info(
+                f"[KNOWLEDGE-EMPTY] tenant={self.tenant_id}, "
+                f"no relevant knowledge found for query",
+            )
             return None
+
+        logger.info(
+            f"[KNOWLEDGE-INJECT] tenant={self.tenant_id}, "
+            f"context_length={len(context_text)} chars",
+        )
 
         hint_text = self.hint_template.replace(
             "{{ context }}",

@@ -203,6 +203,12 @@ def build_xruntime_app(config: XRuntimeConfig | None = None) -> Any:
     if state_cache is not None:
         app.state.metrics = state_cache.metrics
 
+    # Expose extension components for admin API
+    app.state.skill_registry = ext.get("skill_registry")
+    app.state.memory_store = ext.get("memory_store")
+    app.state.model_router = ext.get("model_router")
+    app.state.middleware_chain = ext.get("extra_agent_middlewares", [])
+
     # Retain the plugin registry so its lifecycle is managed and expose
     # it on app.state; register a shutdown handler so ``shutdown_all``
     # runs when the app stops.
@@ -214,9 +220,12 @@ def build_xruntime_app(config: XRuntimeConfig | None = None) -> Any:
         async def _shutdown_plugins() -> None:
             plugin_registry.shutdown_all()
 
-    # Health / readiness endpoints (the SDK probes GET /health and
-    # /ready; AS does not register them, so add them here).
+    # Health / readiness endpoints + Prometheus metrics
     _mount_health_routes(app)
+
+    # Mount admin API (/admin/*)
+    from xruntime._admin_api import admin_router
+    app.include_router(admin_router)
 
     mount_protocol_adapters(
         app,

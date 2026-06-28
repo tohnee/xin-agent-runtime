@@ -11,10 +11,13 @@ Inherits :class:`agentscope.middleware.MiddlewareBase` and implements
 from __future__ import annotations
 
 import fnmatch
+import logging
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Callable
 
 from agentscope.middleware import MiddlewareBase
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -183,12 +186,29 @@ class RbacMiddleware(MiddlewareBase):
         ):
             session_id = agent.state.session_id or ""
 
+        role_name = self._session_roles.get(session_id, self.default_role)
+
+        logger.info(
+            f"[RBAC-CHECK] session={session_id}, role={role_name}, "
+            f"tool={tool_name}",
+        )
+
         decision = self.check_tool(session_id, tool_name)
+
         if decision == "deny":
+            logger.warning(
+                f"[RBAC-DENIED] session={session_id}, role={role_name}, "
+                f"tool={tool_name} — Access DENIED",
+            )
             raise PermissionError(
                 f"RBAC denied tool '{tool_name}' "
                 f"for session '{session_id}'",
             )
+
+        logger.info(
+            f"[RBAC-ALLOWED] session={session_id}, role={role_name}, "
+            f"tool={tool_name} — Access ALLOWED",
+        )
 
         async for chunk in next_handler():
             yield chunk
