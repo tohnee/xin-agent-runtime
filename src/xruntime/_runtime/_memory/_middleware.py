@@ -53,6 +53,7 @@ class MemoryMiddleware(MiddlewareBase):
         session_id: str = "",
         max_injected: int = 5,
         confidence_threshold: float = 0.3,
+        extractor: Any = None,
     ) -> None:
         """Initialize the middleware."""
         self._store = store
@@ -62,6 +63,12 @@ class MemoryMiddleware(MiddlewareBase):
         self._max_injected = max_injected
         self._confidence_threshold = confidence_threshold
         self._last_query: str = ""
+        if extractor is not None:
+            self._extractor = extractor
+        else:
+            from ._extractor import MockLLMExtractor
+
+            self._extractor = MockLLMExtractor()
 
     async def on_system_prompt(
         self,
@@ -177,39 +184,25 @@ class MemoryMiddleware(MiddlewareBase):
     ) -> None:
         """Extract memorable facts from conversation events.
 
-        MVP: simple heuristic detection of preferences.
-        V2 will use an LLM for extraction.
+        Uses the injected extractor (LLM or heuristic fallback).
 
         Args:
             events: List of events from the reply.
         """
         try:
-            for event in events:
-                text = getattr(event, "content", "")
-                if isinstance(text, list):
-                    text = " ".join(
-                        str(t.get("text", ""))
-                        for t in text
-                        if isinstance(t, dict)
-                    )
-                if not isinstance(text, str):
-                    continue
-
-                lower = text.lower()
-                if "prefer" in lower or "i like" in lower:
-                    item = MemoryItem(
-                        user_id=self._user_id,
-                        tenant_id=self._tenant_id,
-                        type="preference",
-                        content=text[:500],
-                        source_session_id=self._session_id,
-                        confidence=0.6,
-                    )
-                    self._store.add(item)
-                    logger.debug(
-                        "Extracted preference: %s",
-                        text[:80],
-                    )
+            items = await self._extractor.extract(
+                events=events,
+                user_id=self._user_id,
+                tenant_id=self._tenant_id,
+                session_id=self._session_id,
+            )
+            for item in items:
+                self._store.add(item)
+                logger.debug(
+                    "Extracted %s: %s",
+                    item.type,
+                    item.content[:80],
+                )
         except Exception:
             logger.debug(
                 "Memory extraction failed (non-blocking)",
