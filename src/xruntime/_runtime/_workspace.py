@@ -85,13 +85,26 @@ class WorkspaceManagerFactory:
             return LocalWorkspaceManager(
                 basedir=self._config.base_dir,
             )
-        # For docker/e2b, return a placeholder (real implementation
-        # would create DockerWorkspaceManager / E2BWorkspaceManager)
-        return type(
-            "PlaceholderWorkspaceManager",
-            (),
-            {"backend": effective},
-        )()
+
+        if effective == "docker":
+            from agentscope.app.workspace_manager import (
+                DockerWorkspaceManager,
+            )
+
+            return DockerWorkspaceManager(
+                basedir=self._config.base_dir,
+            )
+
+        if effective == "e2b":
+            from agentscope.app.workspace_manager import (
+                E2BWorkspaceManager,
+            )
+
+            return E2BWorkspaceManager(
+                basedir=self._config.base_dir,
+            )
+
+        raise ValueError(f"Unknown workspace backend: {effective}")
 
     def workspace_path(
         self,
