@@ -162,9 +162,7 @@ class TestFullChainWithNewMiddlewares:
             "alice", "agent-1", "sess-1"
         )
         prompt_hooks = [
-            mw
-            for mw in mws
-            if mw.is_implemented("on_system_prompt")
+            mw for mw in mws if mw.is_implemented("on_system_prompt")
         ]
         assert len(prompt_hooks) >= 2  # Skill + Memory
 
@@ -178,7 +176,5 @@ class TestFullChainWithNewMiddlewares:
         prompt = "You are a helpful assistant."
         for mw in mws:
             if mw.is_implemented("on_system_prompt"):
-                prompt = await mw.on_system_prompt(
-                    FakeAgent(), prompt
-                )
+                prompt = await mw.on_system_prompt(FakeAgent(), prompt)
         assert "Available Skills" in prompt

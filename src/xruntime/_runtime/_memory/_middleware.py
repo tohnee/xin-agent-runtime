@@ -14,7 +14,6 @@ from typing import Any, AsyncGenerator, Callable
 
 from agentscope.middleware import MiddlewareBase
 
-from ._models import MemoryItem
 from ._store import MemoryStore
 
 logger = logging.getLogger("xruntime.middleware.memory")

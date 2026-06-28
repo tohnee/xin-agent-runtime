@@ -169,10 +169,7 @@ class HybridRetriever:
             m
             for m in candidates
             if not m.is_expired()
-            and (
-                min_confidence is None
-                or m.confidence >= min_confidence
-            )
+            and (min_confidence is None or m.confidence >= min_confidence)
         ]
 
         if not candidates:
@@ -189,8 +186,7 @@ class HybridRetriever:
             vec_score = cosine_similarity(query_vec, item_vec)
 
             combined = (
-                self._kw_weight * kw_score
-                + self._vec_weight * vec_score
+                self._kw_weight * kw_score + self._vec_weight * vec_score
             )
 
             if combined >= self._min_score:

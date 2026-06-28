@@ -247,8 +247,7 @@ class TestHybridRetriever:
                 content="Old Python fact",
                 user_id="alice",
                 tenant_id="acme",
-                expires_at=datetime.now(timezone.utc)
-                - timedelta(hours=1),
+                expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
             )
         )
         store.add(

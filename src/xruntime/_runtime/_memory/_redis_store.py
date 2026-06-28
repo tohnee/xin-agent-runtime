@@ -16,7 +16,6 @@ Args:
 """
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
@@ -194,14 +193,10 @@ class RedisMemoryStore:
 
         # Filter by user/tenant
         if user_id:
-            user_ids = set(
-                client.smembers(self._user_key(user_id))
-            )
+            user_ids = set(client.smembers(self._user_key(user_id)))
             candidate_ids &= user_ids
         if tenant_id:
-            tenant_ids = set(
-                client.smembers(self._tenant_key(tenant_id))
-            )
+            tenant_ids = set(client.smembers(self._tenant_key(tenant_id)))
             candidate_ids &= tenant_ids
 
         if not candidate_ids:
@@ -280,9 +275,9 @@ class RedisMemoryStore:
         Returns:
             `int`: Number of memories removed.
         """
-        client = self._get_client()
         items = self.list_all(
-            user_id=user_id, tenant_id=tenant_id,
+            user_id=user_id,
+            tenant_id=tenant_id,
         )
         count = 0
         for item in items:

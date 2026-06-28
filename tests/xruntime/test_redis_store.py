@@ -15,7 +15,8 @@ from xruntime._runtime._memory._redis_store import RedisMemoryStore
 
 RUN_REDIS = os.environ.get("RUN_REDIS_TESTS") == "1"
 REDIS_URL = os.environ.get(
-    "REDIS_URL", "redis://localhost:6379/15",
+    "REDIS_URL",
+    "redis://localhost:6379/15",
 )
 
 
@@ -90,13 +91,19 @@ class TestRedisMemoryStore:
             )
         )
         acme = store.search(
-            query="secret", user_id="alice", tenant_id="acme",
+            query="secret",
+            user_id="alice",
+            tenant_id="acme",
         )
         other = store.search(
-            query="data", user_id="bob", tenant_id="othercorp",
+            query="data",
+            user_id="bob",
+            tenant_id="othercorp",
         )
         cross = store.search(
-            query="secret", user_id="bob", tenant_id="othercorp",
+            query="secret",
+            user_id="bob",
+            tenant_id="othercorp",
         )
         assert len(acme) == 1
         assert len(other) == 1

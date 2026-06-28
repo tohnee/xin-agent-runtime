@@ -230,9 +230,7 @@ class TestLangfuseTracerMiddleware:
                 pass
 
         assert len(exporter.mock.generations) == 3
-        turns = [
-            g["metadata"]["turn"] for g in exporter.mock.generations
-        ]
+        turns = [g["metadata"]["turn"] for g in exporter.mock.generations]
         assert turns == [1, 2, 3]
 
     @pytest.mark.asyncio
