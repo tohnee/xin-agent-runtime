@@ -341,6 +341,13 @@ def create_xruntime_extension(
 
     plugin_registry = _load_plugins(config, registry)
 
+    # Build tools from new modules for Agent toolkit injection
+    from .._runtime._skills._load_skill_tool import LoadSkillTool
+    from .._runtime._subagents._task_tool import TaskTool
+
+    load_skill_tool = LoadSkillTool(skill_registry)
+    task_tool = TaskTool(subagent_executor)
+
     return {
         "extra_agent_middlewares": middleware_factory,
         "adapter_registry": registry,
@@ -351,6 +358,8 @@ def create_xruntime_extension(
         "skill_registry": skill_registry,
         "memory_store": memory_store,
         "subagent_executor": subagent_executor,
+        "load_skill_tool": load_skill_tool,
+        "task_tool": task_tool,
     }
 
 
