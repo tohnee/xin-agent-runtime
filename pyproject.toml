@@ -160,3 +160,6 @@ version = {attr = "agentscope._version.__version__"}
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "e2e: end-to-end tests requiring real API keys (deselect with '-m \"not e2e\"')",
+]
