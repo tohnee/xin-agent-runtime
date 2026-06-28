@@ -12,7 +12,6 @@ _hybrid_retriever.py: ``embed(text: str) -> list[float]``.
 from __future__ import annotations
 
 import logging
-import math
 from typing import Any
 
 logger = logging.getLogger("xruntime.memory.embeddings")
