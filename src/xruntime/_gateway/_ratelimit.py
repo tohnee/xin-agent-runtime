@@ -21,6 +21,10 @@ class RateLimiter:
             Sliding window duration in seconds.
     """
 
+    # Maximum number of tracked clients before proactive eviction kicks
+    # in. Prevents unbounded memory growth from one-off clients.
+    _MAX_TRACKED_CLIENTS = 10_000
+
     def __init__(
         self,
         max_requests: int,
@@ -30,6 +34,7 @@ class RateLimiter:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self._hits: dict[str, Deque[float]] = defaultdict(deque)
+        self._last_eviction = time.monotonic()
 
     async def check(self, client_id: str) -> bool:
         """Check if a client is within the rate limit.
@@ -44,6 +49,15 @@ class RateLimiter:
         """
         now = time.monotonic()
         window_start = now - self.window_seconds
+
+        # Proactive eviction: periodically sweep all clients to remove
+        # expired entries so the map does not grow unbounded from
+        # one-off clients that never send a second request.
+        if (
+            len(self._hits) > self._MAX_TRACKED_CLIENTS
+            or (now - self._last_eviction) > self.window_seconds
+        ):
+            self._evict_expired(window_start)
 
         hits = self._hits.get(client_id)
 
@@ -64,6 +78,23 @@ class RateLimiter:
             hits = self._hits[client_id]
         hits.append(now)
         return True
+
+    def _evict_expired(self, window_start: float) -> None:
+        """Sweep all clients and remove fully expired ones.
+
+        Args:
+            window_start (`float`): The cutoff timestamp; entries
+                older than this are expired.
+        """
+        expired_keys: list[str] = []
+        for key, hits in self._hits.items():
+            while hits and hits[0] < window_start:
+                hits.popleft()
+            if not hits:
+                expired_keys.append(key)
+        for key in expired_keys:
+            del self._hits[key]
+        self._last_eviction = time.monotonic()
 
 
 # Routes that bypass rate limiting (health / docs probes).

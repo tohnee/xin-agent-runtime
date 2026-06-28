@@ -2,6 +2,8 @@
 """Tests for auth principal and membership binding."""
 
 import base64
+import hashlib
+import hmac
 import json
 from types import SimpleNamespace
 
@@ -28,6 +30,22 @@ def _unsigned_jwt(payload: dict) -> str:
         return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
     return f"{enc(header)}.{enc(payload)}."
+
+
+def _signed_jwt(payload: dict, secret: str) -> str:
+    """Create an HS256-signed JWT for testing."""
+    header = {"alg": "HS256", "typ": "JWT"}
+
+    def enc(obj: dict) -> str:
+        raw = json.dumps(obj, separators=(",", ":")).encode()
+        return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+    header_b64 = enc(header)
+    payload_b64 = enc(payload)
+    signing_input = f"{header_b64}.{payload_b64}".encode()
+    sig = hmac.new(secret.encode(), signing_input, hashlib.sha256).digest()
+    sig_b64 = base64.urlsafe_b64encode(sig).decode().rstrip("=")
+    return f"{header_b64}.{payload_b64}.{sig_b64}"
 
 
 def test_api_key_resolves_principal() -> None:
@@ -57,21 +75,33 @@ def test_api_key_resolves_principal() -> None:
 
 def test_jwt_claims_resolve_principal() -> None:
     """JWT claims should resolve tenant/user/role/KB scope."""
-    token = _unsigned_jwt(
+    secret = "test-secret-key"
+    token = _signed_jwt(
         {
             "tenant_id": "acme",
             "sub": "alice",
             "role": "contributor",
             "kb_ids": ["public"],
-        }
+        },
+        secret,
     )
 
-    principal = JwtClaimsParser().parse(token)
+    principal = JwtClaimsParser(secret=secret).parse(token)
 
     assert principal.tenant_id == "acme"
     assert principal.user_id == "alice"
     assert principal.role is TenantRole.CONTRIBUTOR
     assert principal.kb_ids == ["public"]
+
+
+def test_jwt_rejected_without_secret() -> None:
+    """JWT parsing must fail when no secret is configured."""
+    token = _signed_jwt(
+        {"tenant_id": "acme", "sub": "alice", "role": "viewer"},
+        "any-secret",
+    )
+    with pytest.raises(ValueError, match="requires a secret"):
+        JwtClaimsParser().parse(token)
 
 
 async def test_auth_middleware_sets_request_principal() -> None:

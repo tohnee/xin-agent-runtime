@@ -253,6 +253,9 @@ docker service logs xruntime_gateway -f
 部署后运行下列检查：
 
 ```bash
+# 0. 部署预检查（推荐）
+bash deploy/pre-deploy-check.sh
+
 # 1. 健康检查
 curl http://localhost:8900/health
 
@@ -269,13 +272,45 @@ curl -X POST http://localhost:8900/v1/messages \
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 
-# 4. 运行集成测试
-pytest tests/xruntime/integration/ -v
+# 4. Admin API（需要 admin/owner 角色）
+curl -H "x-api-key: your-admin-key" http://localhost:8900/admin/status
+
+# 5. 运行完整测试套件（655 tests）
+pytest tests/xruntime/ -q --tb=short
 ```
 
 ---
 
-## 🔧 常见问题排查
+## � 安全注意事项
+
+### JWT 认证
+
+JWT 解析需要配置 `XRUNTIME_JWT_SECRET`。未配置 secret 时所有 JWT token 都会被拒绝（fail-closed）：
+
+```bash
+# 生成强密钥
+openssl rand -hex 32
+
+# 配置
+export XRUNTIME_JWT_SECRET="your-generated-secret"
+```
+
+### Admin API 认证
+
+所有 `/admin/*` 端点要求 `admin` 或 `owner` 角色的认证 principal。普通 API Key 用户无法访问。
+
+### 路径穿越防护
+
+- Workspace 路径中的 `tenant_id` / `session_id` 禁止包含 `..` `/`
+- LLM-Wiki 的 `tenant_id` / `kb_id` 同样受路径穿越防护
+
+### Rate Limiter 内存
+
+RateLimiter 内置主动清理机制（`_MAX_TRACKED_CLIENTS = 10000`），防止一次性客户端导致内存无限增长。
+
+---
+
+## �🔧 常见问题排查
 
 ### Q: 启动报错 "Redis connection failed"
 

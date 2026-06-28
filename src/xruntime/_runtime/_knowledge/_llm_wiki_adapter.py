@@ -125,8 +125,39 @@ class LlmWikiAdapter(KnowledgeAdapter):
         """Whether to use tenant/KB physical directories."""
         return bool(self.config.extra.get("scoped_layout"))
 
+    @staticmethod
+    def _validate_path_component(label: str, value: str) -> None:
+        """Reject path traversal characters in tenant/kb ids.
+
+        Args:
+            label (`str`): Field name for the error message.
+            value (`str`): The value to check.
+
+        Raises:
+            `ValueError`: If the value contains ``..``, ``/``,
+                or ``os.sep``.
+        """
+        if ".." in value or "/" in value or os.sep in value:
+            raise ValueError(
+                f"Path traversal detected in {label}: {value}",
+            )
+
     def _kb_root(self, tenant_id: str, kb_id: str) -> str:
-        """Return the physical root for a tenant/KB."""
+        """Return the physical root for a tenant/KB.
+
+        Args:
+            tenant_id (`str`): Tenant identifier (validated).
+            kb_id (`str`): KB identifier (validated).
+
+        Returns:
+            `str`: The physical root path.
+
+        Raises:
+            `ValueError`: If tenant_id or kb_id contains path
+                traversal characters.
+        """
+        self._validate_path_component("tenant_id", tenant_id)
+        self._validate_path_component("kb_id", kb_id)
         return os.path.join(
             self.config.raw_dir,
             "tenants",

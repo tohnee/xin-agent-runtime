@@ -3,18 +3,59 @@
 
 Mounted at ``/admin/*``. Provides read-only management endpoints
 for skills, memories, tenants, and system status.
+
+All admin endpoints require authentication — the principal must be
+present on ``request.state.principal`` (set by ``AuthMiddleware``)
+and must hold the ``admin`` or ``owner`` tenant role.
 """
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 logger = logging.getLogger("xruntime.admin")
 
+
+def _get_version() -> str:
+    """Return the XRuntime package version."""
+    try:
+        from xruntime._version import __version__
+
+        return __version__
+    except Exception:  # noqa: BLE001
+        return "unknown"
+
+
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+async def _require_admin(request: Request) -> None:
+    """Dependency that rejects non-admin/owner principals.
+
+    Args:
+        request (`Request`): The incoming request with ``principal``
+            set by ``AuthMiddleware``.
+
+    Raises:
+        `HTTPException`: 401 if not authenticated, 403 if role is
+            insufficient.
+    """
+    principal = getattr(request.state, "principal", None)
+    if principal is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required for admin endpoints",
+        )
+    role = getattr(principal, "role", None)
+    role_val = role.value if hasattr(role, "value") else str(role)
+    if role_val not in ("admin", "owner"):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Admin role required (current: {role_val})",
+        )
 
 
 class SkillInfo(BaseModel):
@@ -54,7 +95,8 @@ def _get_app_state(request: Any) -> Any:
 
 @admin_router.get("/status", response_model=SystemStatus)
 async def get_system_status(
-    request: Any,
+    request: Request,
+    _admin: None = Depends(_require_admin),
 ) -> dict[str, Any]:
     """Get overall system status and metrics."""
     state = _get_app_state(request)
@@ -92,14 +134,15 @@ async def get_system_status(
             if memory_store
             else False
         ),
-        "version": "1.0.0",
+        "version": _get_version(),
     }
 
 
 @admin_router.get("/skills")
 async def list_skills(
-    request: Any,
+    request: Request,
     limit: int = Query(50, ge=1, le=200),
+    _admin: None = Depends(_require_admin),
 ) -> dict[str, Any]:
     """List all registered skills."""
     state = _get_app_state(request)
@@ -129,8 +172,9 @@ async def list_skills(
 
 @admin_router.get("/skills/{skill_name}")
 async def get_skill_detail(
-    request: Any,
+    request: Request,
     skill_name: str,
+    _admin: None = Depends(_require_admin),
 ) -> dict[str, Any]:
     """Get detailed information for a specific skill."""
     state = _get_app_state(request)
@@ -152,8 +196,9 @@ async def get_skill_detail(
 
 @admin_router.post("/memories/search")
 async def search_memories(
-    request: Any,
+    request: Request,
     query: MemorySearchQuery,
+    _admin: None = Depends(_require_admin),
 ) -> dict[str, Any]:
     """Search memories by text query."""
     state = _get_app_state(request)
@@ -189,10 +234,11 @@ async def search_memories(
 
 @admin_router.get("/memories")
 async def list_memories(
-    request: Any,
+    request: Request,
     user_id: str = "",
     tenant_id: str = "default",
     limit: int = Query(50, ge=1, le=200),
+    _admin: None = Depends(_require_admin),
 ) -> dict[str, Any]:
     """List memories filtered by user/tenant."""
     state = _get_app_state(request)
@@ -226,7 +272,8 @@ async def list_memories(
 
 @admin_router.get("/models")
 async def list_available_models(
-    request: Any,
+    request: Request,
+    _admin: None = Depends(_require_admin),
 ) -> dict[str, Any]:
     """List available model tiers and routing config."""
     state = _get_app_state(request)
@@ -248,7 +295,8 @@ async def list_available_models(
 
 @admin_router.get("/metrics/summary")
 async def get_metrics_summary(
-    request: Any,
+    request: Request,
+    _admin: None = Depends(_require_admin),
 ) -> dict[str, Any]:
     """Get aggregated performance metrics summary."""
     state = _get_app_state(request)

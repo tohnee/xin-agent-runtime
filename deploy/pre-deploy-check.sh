@@ -4,7 +4,9 @@
 # 用于部署前验证所有环境依赖和配置
 # ============================================
 
-set -e
+# Note: do NOT use set -e here — check functions use non-zero
+# exits from command -v to detect missing tools, which would
+# abort the entire script before all checks run.
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'

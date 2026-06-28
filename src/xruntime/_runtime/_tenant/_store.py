@@ -74,22 +74,31 @@ class JwtClaimsParser:
         self._secret = secret
 
     def parse(self, token: str) -> AuthPrincipal:
-        """Parse a JWT into an authenticated principal."""
+        """Parse a JWT into an authenticated principal.
+
+        Raises:
+            `ValueError`: If no secret is configured (all tokens
+                are rejected), or if the signature is invalid.
+        """
+        if not self._secret:
+            raise ValueError(
+                "JWT parsing requires a secret; configure "
+                "XRUNTIME_JWT_SECRET to enable JWT auth",
+            )
         header_b64, payload_b64, signature_b64 = token.split(".", 2)
         header = _json_b64decode(header_b64)
         payload = _json_b64decode(payload_b64)
         alg = header.get("alg", "none")
-        if self._secret or alg == "HS256":
-            if alg != "HS256":
-                raise ValueError("Only HS256 JWTs are supported with a secret")
-            expected = hmac.new(
-                self._secret.encode() if self._secret else b"",
-                f"{header_b64}.{payload_b64}".encode(),
-                hashlib.sha256,
-            ).digest()
-            actual = _b64decode(signature_b64)
-            if not hmac.compare_digest(expected, actual):
-                raise ValueError("Invalid JWT signature")
+        if alg != "HS256":
+            raise ValueError("Only HS256 JWTs are supported")
+        expected = hmac.new(
+            self._secret.encode(),
+            f"{header_b64}.{payload_b64}".encode(),
+            hashlib.sha256,
+        ).digest()
+        actual = _b64decode(signature_b64)
+        if not hmac.compare_digest(expected, actual):
+            raise ValueError("Invalid JWT signature")
         tenant_id = payload.get("tenant_id") or payload.get("tid")
         user_id = payload.get("sub") or payload.get("user_id")
         role_raw = payload.get("role", TenantRole.VIEWER.value)

@@ -35,6 +35,7 @@ def _check_tenant_action(
         `PermissionDecision`: ALLOW if the role has the action, DENY otherwise.
     """
     from .._tenant import Action, TenantPolicy, TenantRole
+    from .._tenant._policy import Principal
 
     try:
         normalized_role = TenantRole(role)
@@ -44,11 +45,11 @@ def _check_tenant_action(
             message=f"Unknown role: {role}",
         )
     policy = TenantPolicy.default()
-    principal = type(
-        "P",
-        (),
-        {"role": normalized_role},
-    )()
+    principal = Principal(
+        tenant_id="",
+        user_id="",
+        role=normalized_role,
+    )
     try:
         normalized_action = Action(action)
     except ValueError:
