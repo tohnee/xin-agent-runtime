@@ -1,25 +1,55 @@
 # -*- coding: utf-8 -*-
-"""TaskTool — main agent tool for delegating sub-tasks."""
+"""TaskTool — main agent tool for delegating sub-tasks.
+
+Inherits ToolBase for automatic toolkit registration.
+"""
 from __future__ import annotations
 
 from typing import Any
+
+from agentscope.permission import (
+    PermissionBehavior,
+    PermissionDecision,
+)
+from agentscope.tool import ToolBase
 
 from ._executor import SubAgentExecutor
 from ._models import SubAgentTask
 
 
-class TaskTool:
+class TaskTool(ToolBase):
     """Tool that lets the main agent delegate to sub-agents.
-
-    This is a callable wrapper around :class:`SubAgentExecutor`.
-    It does not inherit ``ToolBase`` to avoid abstract-method
-    coupling; it can be registered as a tool via ``Toolkit``
-    by wrapping the ``__call__`` method.
 
     Args:
         executor (`SubAgentExecutor`):
             The sub-agent executor to dispatch tasks through.
+        default_runner (`Any | None`):
+            Optional default runner function.
     """
+
+    name: str = "task"
+    description: str = (
+        "Delegate a task to a sub-agent. "
+        "Specify the sub-agent name and a clear "
+        "task description. The sub-agent will execute "
+        "in isolation and return a summary."
+    )
+    input_schema: dict[str, Any] = {
+        "type": "object",
+        "properties": {
+            "subagent": {
+                "type": "string",
+                "description": "Name of the sub-agent to use.",
+            },
+            "description": {
+                "type": "string",
+                "description": "Clear description of the task.",
+            },
+        },
+        "required": ["subagent", "description"],
+    }
+    is_read_only: bool = False
+    is_concurrency_safe: bool = True
 
     def __init__(
         self,
@@ -35,12 +65,17 @@ class TaskTool:
         """
         self._executor = executor
         self._default_runner = default_runner
-        self.name = "task"
-        self.description = (
-            "Delegate a task to a sub-agent. "
-            "Specify the sub-agent name and a clear "
-            "task description. The sub-agent will execute "
-            "in isolation and return a summary."
+        super().__init__()
+
+    async def check_permissions(
+        self,
+        tool_input: dict[str, Any],
+        context: Any,
+    ) -> PermissionDecision:
+        """Allow task delegation (controlled by RBAC middleware)."""
+        return PermissionDecision(
+            behavior=PermissionBehavior.ALLOW,
+            message="Task delegation allowed.",
         )
 
     async def __call__(

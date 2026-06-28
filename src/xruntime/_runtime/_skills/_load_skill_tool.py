@@ -1,18 +1,22 @@
 # -*- coding: utf-8 -*-
 """LoadSkillTool — Agent tool for on-demand skill loading.
 
-Simple callable wrapper (does not inherit ToolBase to avoid
-abstract-method coupling). Can be registered in a Toolkit
-by wrapping the __call__ method.
+Inherits ToolBase for automatic toolkit registration.
 """
 from __future__ import annotations
 
 from typing import Any
 
+from agentscope.permission import (
+    PermissionBehavior,
+    PermissionDecision,
+)
+from agentscope.tool import ToolBase
+
 from ._registry import SkillNotFoundError, SkillRegistry
 
 
-class LoadSkillTool:
+class LoadSkillTool(ToolBase):
     """Tool that lets an Agent load a skill's full instructions.
 
     Args:
@@ -20,14 +24,39 @@ class LoadSkillTool:
             The skill registry to load from.
     """
 
+    name: str = "load_skill"
+    description: str = (
+        "Load the full instructions for a skill by name. "
+        "Use this after reading the Available Skills list "
+        "in the system prompt to get detailed guidance."
+    )
+    input_schema: dict[str, Any] = {
+        "type": "object",
+        "properties": {
+            "skill_name": {
+                "type": "string",
+                "description": "The name of the skill to load.",
+            },
+        },
+        "required": ["skill_name"],
+    }
+    is_read_only: bool = True
+    is_concurrency_safe: bool = True
+
     def __init__(self, registry: SkillRegistry) -> None:
         """Initialize the tool."""
         self._registry = registry
-        self.name = "load_skill"
-        self.description = (
-            "Load the full instructions for a skill by name. "
-            "Use this after reading the Available Skills list "
-            "in the system prompt to get detailed guidance."
+        super().__init__()
+
+    async def check_permissions(
+        self,
+        tool_input: dict[str, Any],
+        context: Any,
+    ) -> PermissionDecision:
+        """Allow all skill loads (read-only operation)."""
+        return PermissionDecision(
+            behavior=PermissionBehavior.ALLOW,
+            message="Skill loading is read-only.",
         )
 
     async def __call__(
