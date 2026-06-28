@@ -76,7 +76,7 @@ class TestMiddlewareChainIntegration:
         mws1 = await factory("alice", "agent-1", "sess-1")
         mws2 = await factory("bob", "agent-2", "sess-2")
 
-        assert len(mws1) == len(mws2) == 7
+        assert len(mws1) == len(mws2) == 9
         # Different instances (per-session state)
         assert mws1[0] is not mws2[0]
 

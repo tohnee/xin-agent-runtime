@@ -150,6 +150,40 @@ def create_xruntime_extension(
     model_resolver = ModelResolver()
     state_cache = MiddlewareStateCache(config, tenant_id=tenant_id)
 
+    # --- Initialize new modules (before middleware_factory) ---
+    import os
+
+    skill_dirs: list[str] = []
+    project_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    )
+    public_skills = os.path.join(project_root, "skills", "public")
+    custom_skills = os.path.join(project_root, "skills", "custom")
+    if os.path.isdir(public_skills):
+        skill_dirs.append(public_skills)
+    if os.path.isdir(custom_skills):
+        skill_dirs.append(custom_skills)
+
+    from .._runtime._skills import SkillRegistry
+
+    skill_registry = SkillRegistry(skill_dirs=skill_dirs)
+    skill_registry.discover()
+
+    from .._runtime._memory._store import MemoryStore
+
+    memory_store = MemoryStore(min_confidence=0.3)
+
+    from .._runtime._subagents import SubAgentExecutor
+
+    subagent_executor = SubAgentExecutor(
+        specs=[],
+        max_concurrent=getattr(config, "subagent_max_concurrent", 3),
+    )
+
+    # References for closure in middleware_factory
+    skill_registry_ref = skill_registry
+    memory_store_ref = memory_store
+
     async def middleware_factory(
         user_id: str,
         agent_id: str,
@@ -277,44 +311,35 @@ def create_xruntime_extension(
         if knowledge_mw is not None:
             middlewares.append(knowledge_mw)
 
+        # --- Skill injection (on_system_prompt) ---
+        # Injects the skill list so Agent knows what skills are available.
+        if skill_registry_ref is not None:
+            from .._runtime._middleware._skill_injection import (
+                SkillInjectionMiddleware,
+            )
+
+            middlewares.append(
+                SkillInjectionMiddleware(registry=skill_registry_ref)
+            )
+
+        # --- Memory injection (on_system_prompt + on_reply) ---
+        # Injects relevant memories into system prompt and extracts
+        # new memories after each reply.
+        if memory_store_ref is not None:
+            from .._runtime._memory._middleware import MemoryMiddleware
+
+            middlewares.append(
+                MemoryMiddleware(
+                    store=memory_store_ref,
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    session_id=session_id,
+                )
+            )
+
         return middlewares
 
     plugin_registry = _load_plugins(config, registry)
-
-    # --- Initialize new modules ---
-    # SkillRegistry: discover skills from skills/public/ and skills/custom/
-    import os
-
-    skill_dirs: list[str] = []
-    project_root = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    )
-    public_skills = os.path.join(project_root, "skills", "public")
-    custom_skills = os.path.join(project_root, "skills", "custom")
-    if os.path.isdir(public_skills):
-        skill_dirs.append(public_skills)
-    if os.path.isdir(custom_skills):
-        skill_dirs.append(custom_skills)
-
-    from .._runtime._skills import SkillRegistry
-
-    skill_registry = SkillRegistry(skill_dirs=skill_dirs)
-    skill_registry.discover()
-
-    # MemoryStore: per-tenant memory with hybrid retrieval
-    from .._runtime._memory._store import MemoryStore
-
-    memory_store = MemoryStore(min_confidence=0.3)
-
-    # SubAgentExecutor: default specs from config (empty by default)
-    from .._runtime._subagents import SubAgentExecutor
-
-    subagent_executor = SubAgentExecutor(
-        specs=[],
-        max_concurrent=config.subagent_max_concurrent
-        if hasattr(config, "subagent_max_concurrent")
-        else 3,
-    )
 
     return {
         "extra_agent_middlewares": middleware_factory,

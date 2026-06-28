@@ -56,7 +56,7 @@ class TestExtensionReturnsAllModules:
             return len(mws)
 
         count = asyncio.run(check())
-        assert count == 7
+        assert count == 9
 
 
 class TestFullAgentScenario:
