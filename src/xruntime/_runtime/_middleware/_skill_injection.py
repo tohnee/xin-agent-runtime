@@ -8,11 +8,14 @@ use the ``load_skill`` tool to load full instructions (Stage 2).
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from agentscope.middleware import MiddlewareBase
 
 from .._skills._registry import SkillRegistry
+
+logger = logging.getLogger("xruntime.middleware.skill_injection")
 
 _SKILL_PROMPT_FOOTER = (
     "\n\nUse the `load_skill` tool to load a skill's "
@@ -48,5 +51,12 @@ class SkillInjectionMiddleware(MiddlewareBase):
         """
         skill_text = self._registry.inject_to_system_prompt()
         if not skill_text:
+            logger.debug("no skills to inject (empty registry)")
             return current_prompt
+        skill_names = self._registry.skill_names
+        logger.info(
+            "injecting %d skills into system prompt: %s",
+            len(skill_names),
+            skill_names,
+        )
         return current_prompt + skill_text + _SKILL_PROMPT_FOOTER

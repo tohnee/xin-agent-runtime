@@ -78,6 +78,11 @@ class MemoryMiddleware(MiddlewareBase):
             The modified system prompt with memories appended.
         """
         if not self._user_id or not self._last_query:
+            logger.debug(
+                "memory injection skipped: user_id=%s query=%s",
+                bool(self._user_id),
+                bool(self._last_query),
+            )
             return current_prompt
 
         memories = self._store.search(
@@ -95,7 +100,20 @@ class MemoryMiddleware(MiddlewareBase):
         ]
 
         if not filtered:
+            logger.debug(
+                "no matching memories for query '%s' (user=%s, tenant=%s)",
+                self._last_query[:50],
+                self._user_id,
+                self._tenant_id,
+            )
             return current_prompt
+
+        logger.info(
+            "injecting %d memories into system prompt (user=%s, query='%s')",
+            len(filtered),
+            self._user_id,
+            self._last_query[:50],
+        )
 
         lines = [_MEMORY_PROMPT_HEADER]
         for m in filtered:

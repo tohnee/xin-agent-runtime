@@ -30,6 +30,9 @@ class MetricsCollector:
             lambda: {"input": 0, "output": 0},
         )
         self._subagent_calls: dict[str, dict[str, Any]] = {}
+        self._middleware_latency: dict[str, deque] = defaultdict(
+            lambda: deque(maxlen=10000),
+        )
 
     def record_session_start(self, tenant_id: str) -> None:
         """Record a session start.
@@ -203,6 +206,47 @@ class MetricsCollector:
             "total_tokens": stats["total_tokens"],
         }
 
+    def record_middleware_latency(
+        self,
+        middleware_name: str,
+        duration_ms: float,
+    ) -> None:
+        """Record middleware processing latency.
+
+        Args:
+            middleware_name (`str`):
+                The middleware class name.
+            duration_ms (`float`):
+                Processing duration in milliseconds.
+        """
+        self._middleware_latency[middleware_name].append(duration_ms)
+
+    def middleware_stats(
+        self,
+        middleware_name: str,
+    ) -> dict[str, Any]:
+        """Get middleware latency statistics.
+
+        Args:
+            middleware_name (`str`): The middleware name.
+
+        Returns:
+            `dict`: ``{"count": int, "avg_ms": float, "p99_ms": float}``
+        """
+        durations = self._middleware_latency.get(
+            middleware_name,
+            [],
+        )
+        if not durations:
+            return {"count": 0, "avg_ms": 0.0, "p99_ms": 0.0}
+        sorted_d = sorted(durations)
+        p99_idx = int(len(sorted_d) * 0.99)
+        return {
+            "count": len(durations),
+            "avg_ms": sum(durations) / len(durations),
+            "p99_ms": sorted_d[min(p99_idx, len(sorted_d) - 1)],
+        }
+
     def export_prometheus(self) -> str:
         """Export all metrics in Prometheus text format.
 
@@ -285,6 +329,21 @@ class MetricsCollector:
             lines.append(
                 f"xruntime_subagent_tokens_total"
                 f'{{spec="{spec}"}} {stats["total_tokens"]}',
+            )
+
+        # Middleware latency
+        lines.append(
+            "# HELP xruntime_middleware_latency_ms "
+            "Middleware processing latency in ms"
+        )
+        lines.append("# TYPE xruntime_middleware_latency_ms summary")
+        for mw_name, durations in self._middleware_latency.items():
+            if not durations:
+                continue
+            avg = sum(durations) / len(durations)
+            lines.append(
+                f"xruntime_middleware_latency_ms"
+                f'{{middleware="{mw_name}"}} {avg:.4f}',
             )
 
         return "\n".join(lines) + "\n"
