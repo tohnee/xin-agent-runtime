@@ -22,8 +22,10 @@ uv pip install -e ".[xruntime-dev]"
 ### 2. 启动 Redis
 
 ```bash
-# 使用 Docker 启动 Redis
-docker run -d -p 6379:6379 --name xin-redis redis:7-alpine
+# 使用 Docker 启动 Redis（推荐，包含密码）
+docker run -d -p 6379:6379 --name xin-redis \
+  -e REDIS_PASSWORD=xruntime_redis_pwd_2024 \
+  redis:7-alpine redis-server --requirepass xruntime_redis_pwd_2024
 
 # 或使用本地 Redis（需已安装）
 redis-server --daemonize yes
@@ -44,6 +46,7 @@ pytest tests/xruntime/test_extension.py -v
 XRUNTIME_PRODUCTION=0 \
 XRUNTIME_WORKSPACE_BACKEND=local \
 XRUNTIME_STORAGE_REDIS_HOST=localhost \
+XRUNTIME_STORAGE_REDIS_PASSWORD=xruntime_redis_pwd_2024 \
 python -m xruntime._server
 ```
 
@@ -117,14 +120,24 @@ response = requests.post(
 
 ### 租户隔离
 
+XRuntime 使用 `contextvars` 实现请求级别的租户隔离，支持动态租户解析：
+
+1. **认证主体租户**（优先级最高）：从 JWT/API Key 认证后的 principal 获取
+2. **请求参数租户**：从请求体中指定的 `tenant_id` 获取
+3. **默认租户**：未指定时回退到 "default"
+
 ```python
 from xruntime._gateway._extension import create_xruntime_extension
+from xruntime._infra._tenant import current_tenant
 
 # 每个租户独立的资源命名空间
 ext = create_xruntime_extension(
     tenant_id="acme-corp",
     membership_store=my_membership_store
 )
+
+# 在请求处理中动态获取当前租户
+tenant = current_tenant.get()  # 返回当前请求的租户ID
 ```
 
 ### 角色权限矩阵
@@ -275,7 +288,7 @@ curl -X POST http://localhost:8900/v1/messages \
 # 4. Admin API（需要 admin/owner 角色）
 curl -H "x-api-key: your-admin-key" http://localhost:8900/admin/status
 
-# 5. 运行完整测试套件（655 tests）
+# 5. 运行完整测试套件（654 tests, 18 skipped）
 pytest tests/xruntime/ -q --tb=short
 ```
 
@@ -337,11 +350,40 @@ membership_store.resolve_principal(tenant_id, user_id)
 
 ### Q: Workspace Docker 模式无法启动
 
-**A**: 检查 Docker socket 权限：
+**A**: 检查 Docker socket 权限和配置：
 ```bash
 ls -la /var/run/docker.sock
 sudo chmod 666 /var/run/docker.sock  # 开发环境临时方案
+
+# 确认 Docker 服务正常运行
+docker info
 ```
+
+生产环境中，确保 Docker Compose 正确挂载 socket：
+```yaml
+# deploy/docker-compose.yml 中需包含
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+```
+
+### Q: 租户隔离不生效
+
+**A**: 检查 TenantContext 是否正确配置：
+```python
+# 确认租户上下文可以正常获取
+from xruntime._infra._tenant import current_tenant
+
+current_tenant.set("test-tenant")
+assert current_tenant.get() == "test-tenant"
+current_tenant.clear()
+assert current_tenant.get() is None
+```
+
+租户解析优先级：
+1. 认证中间件设置的租户（从 JWT/API Key 主体）
+2. 请求体中的 tenant_id
+3. 配置文件中的默认 tenant_id
+4. "default"（最终回退）
 
 ---
 

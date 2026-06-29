@@ -53,6 +53,11 @@ xruntime = [
     "claude-agent-sdk",
     "pyyaml",
 ]
+xruntime-minimal = [
+    "agentscope[service,storage]",
+    "claude-agent-sdk",
+    "pyyaml",
+]
 xruntime-dev = [
     "agentscope[dev]",
     "claude-agent-sdk",
