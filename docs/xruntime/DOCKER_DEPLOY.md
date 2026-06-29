@@ -153,6 +153,80 @@ docker compose up -d
 
 ---
 
+## 镜像导出与导入
+
+如果需要在无网络环境部署，或者想要备份镜像，可以使用导出/导入功能。
+
+### 导出镜像
+
+```bash
+cd deploy
+
+# 导出当前 xruntime:latest 镜像为 tar.gz
+./save-image.sh
+
+# 指定镜像名称和输出路径
+./save-image.sh xruntime:latest /path/to/output.tar.gz
+```
+
+导出示例输出：
+```
+源镜像: xruntime:latest
+输出文件: ./xruntime-image.tar.gz
+镜像大小: 1.12GB
+
+正在导出镜像，请稍候...
+
+✅ 镜像导出成功！
+
+  输出文件: ./xruntime-image.tar.gz
+  压缩后大小: ~247MB
+  耗时: 约30秒
+
+  导入命令:
+    ./load-image.sh
+```
+
+### 导入镜像
+
+```bash
+cd deploy
+
+# 导入当前目录的 xruntime-image.tar.gz
+./load-image.sh
+
+# 指定镜像文件路径
+./load-image.sh /path/to/xruntime-image.tar.gz
+```
+
+导入成功后即可正常启动服务：
+```bash
+./start.sh start
+```
+
+### 镜像文件说明
+
+| 项目 | 说明 |
+|------|------|
+| 原始大小 | ~1.12GB |
+| 压缩后大小 | ~247MB |
+| 格式 | tar.gz (docker save + gzip) |
+| 架构 | arm64 / amd64 (取决于构建机器) |
+
+> **注意**: 镜像包已添加到 `.gitignore`，不会提交到 Git 仓库。建议通过 GitHub Release 分发。
+
+### 上传到 GitHub Release
+
+1. 进入仓库 Releases 页面，点击 "Draft a new release"
+2. 创建新的 Tag（如 `v1.0.0`）
+3. 填写发布说明
+4. 将 `xruntime-image.tar.gz` 拖拽到附件区域
+5. 点击 "Publish release"
+
+用户下载后使用 `./load-image.sh` 导入即可。
+
+---
+
 ## 数据持久化
 
 Docker Compose 配置了以下数据卷：

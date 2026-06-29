@@ -167,3 +167,9 @@ xruntime.yaml
 .env.example.bak
 *.log
 /tmp/xin-agent-runtime.log
+
+# Docker images
+deploy/*.tar
+deploy/*.tar.gz
+deploy/*.tar.xz
+deploy/*.zip
