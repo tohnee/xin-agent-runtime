@@ -222,6 +222,12 @@ def create_xruntime_extension(
         from .._runtime._middleware._langfuse_tracer import (
             LangfuseTracerMiddleware,
         )
+        from .._infra._tenant import current_tenant
+
+        # Dynamic tenant resolution: prefer the tenant set by auth
+        # middleware (from authenticated principal), fall back to the
+        # default tenant_id passed to create_xruntime_extension.
+        effective_tenant = current_tenant.get() or tenant_id or "default"
 
         middlewares: list[Any] = []
 
@@ -230,7 +236,7 @@ def create_xruntime_extension(
         middlewares.append(
             LangfuseTracerMiddleware(
                 exporter=langfuse_exporter,
-                tenant_id=tenant_id,
+                tenant_id=effective_tenant,
                 user_id=user_id,
                 session_id=session_id,
             )
@@ -255,7 +261,7 @@ def create_xruntime_extension(
             middlewares.append(
                 AuditMiddleware(
                     logger=audit_logger,
-                    tenant_id=tenant_id,
+                    tenant_id=effective_tenant,
                     user_id=user_id,
                 )
             )
@@ -267,9 +273,7 @@ def create_xruntime_extension(
             quota_tracker = await state_cache.get_quota_tracker(
                 session_id,
             )
-            middlewares.append(
-                QuotaMiddleware(QuotaConfig(), tracker=quota_tracker)
-            )
+            middlewares.append(QuotaMiddleware(QuotaConfig(), tracker=quota_tracker))
 
             # RBAC defaults to the configured least-privilege role
             # (``permission.default_role``, default ``viewer``). Apps
@@ -278,7 +282,7 @@ def create_xruntime_extension(
             principal = None
             if membership_store is not None:
                 principal = membership_store.resolve_principal(
-                    tenant_id,
+                    effective_tenant,
                     user_id,
                 )
             if principal is not None:
@@ -293,7 +297,7 @@ def create_xruntime_extension(
         kb_ids: list[str] = []
         principal_role = "viewer"
         if membership_store is not None:
-            principal = membership_store.resolve_principal(tenant_id, user_id)
+            principal = membership_store.resolve_principal(effective_tenant, user_id)
             if principal is not None:
                 principal_role = principal.role.value
                 if knowledge_acl_store is not None:
@@ -318,9 +322,7 @@ def create_xruntime_extension(
                 SkillInjectionMiddleware,
             )
 
-            middlewares.append(
-                SkillInjectionMiddleware(registry=skill_registry_ref)
-            )
+            middlewares.append(SkillInjectionMiddleware(registry=skill_registry_ref))
 
         # --- Memory injection (on_system_prompt + on_reply) ---
         # Injects relevant memories into system prompt and extracts
@@ -332,7 +334,7 @@ def create_xruntime_extension(
                 MemoryMiddleware(
                     store=memory_store_ref,
                     user_id=user_id,
-                    tenant_id=tenant_id,
+                    tenant_id=effective_tenant,
                     session_id=session_id,
                 )
             )
@@ -514,9 +516,7 @@ class _GatewayState:
             api_key (`str`): The api key.
             credential_id (`str`): The credential id.
         """
-        self._credential_cache[
-            (user_id, provider_name, api_key)
-        ] = credential_id
+        self._credential_cache[(user_id, provider_name, api_key)] = credential_id
 
     def agent_cache(
         self,
@@ -626,8 +626,7 @@ def mount_protocol_adapters(
                 return JSONResponse(
                     {
                         "status": "not_implemented",
-                        "message": f"{protocol_type.value} adapter "
-                        f"not registered",
+                        "message": f"{protocol_type.value} adapter " f"not registered",
                     },
                     status_code=404,
                 )
@@ -658,76 +657,85 @@ def mount_protocol_adapters(
 
             current_tenant.set(effective_tenant)
 
-            # Build the RuntimeExecutionPlan from the parsed request.
-            # The plan unifies all three protocols and carries budget,
-            # workspace, model, and knowledge scope for downstream
-            # governance (M4).
-            from ._plan import build_plan_from_request
-
-            # Resolve authorized KB ids and tenant tool allowlist from
-            # the principal (if available).
-            authorized_kb_ids: list[str] = []
-            if principal is not None and hasattr(principal, "kb_ids"):
-                authorized_kb_ids = list(principal.kb_ids)
-
-            plan = build_plan_from_request(
-                xrt_request,
-                tenant_tool_allowlist=None,
-                authorized_kb_ids=authorized_kb_ids,
-            )
-            # Override tenant/user from authenticated principal
-            plan.tenant_id = effective_tenant
-            plan.user_id = effective_user
-
-            storage = app.state.storage
-            chat_service = app.state.chat_service
-            chat_run_registry = app.state.chat_run_registry
-            message_bus = app.state.message_bus
-
-            user_id = effective_user
-
             try:
-                agent_id, session_id = await _materialize_session(
-                    state,
-                    storage,
+                # Build the RuntimeExecutionPlan from the parsed request.
+                # The plan unifies all three protocols and carries budget,
+                # workspace, model, and knowledge scope for downstream
+                # governance (M4).
+                from ._plan import build_plan_from_request
+
+                # Resolve authorized KB ids and tenant tool allowlist from
+                # the principal (if available).
+                authorized_kb_ids: list[str] = []
+                if principal is not None and hasattr(principal, "kb_ids"):
+                    authorized_kb_ids = list(principal.kb_ids)
+
+                plan = build_plan_from_request(
                     xrt_request,
-                    user_id,
-                    effective_tenant,
+                    tenant_tool_allowlist=None,
+                    authorized_kb_ids=authorized_kb_ids,
                 )
-            except _MaterializeError as exc:
-                return JSONResponse(
-                    {"detail": str(exc)},
-                    status_code=exc.status_code,
+                # Override tenant/user from authenticated principal
+                plan.tenant_id = effective_tenant
+                plan.user_id = effective_user
+
+                storage = app.state.storage
+                chat_service = app.state.chat_service
+                chat_run_registry = app.state.chat_run_registry
+                message_bus = app.state.message_bus
+
+                user_id = effective_user
+
+                try:
+                    agent_id, session_id = await _materialize_session(
+                        state,
+                        storage,
+                        xrt_request,
+                        user_id,
+                        effective_tenant,
+                    )
+                except _MaterializeError as exc:
+                    return JSONResponse(
+                        {"detail": str(exc)},
+                        status_code=exc.status_code,
+                    )
+
+                from agentscope.message import UserMsg
+
+                input_msg = UserMsg(
+                    name=user_id,
+                    content=xrt_request.prompt,
                 )
 
-            from agentscope.message import UserMsg
+                async def _stream() -> AsyncGenerator[bytes, None]:
+                    try:
+                        async for chunk in _serialize_stream(
+                            adapter,
+                            message_bus,
+                            chat_run_registry,
+                            chat_service,
+                            session_id,
+                            user_id,
+                            agent_id,
+                            input_msg,
+                        ):
+                            yield chunk
+                    finally:
+                        # Clear tenant context when stream completes to
+                        # prevent context leakage between async tasks.
+                        current_tenant.clear()
 
-            input_msg = UserMsg(
-                name=user_id,
-                content=xrt_request.prompt,
-            )
-
-            async def _stream() -> AsyncGenerator[bytes, None]:
-                async for chunk in _serialize_stream(
-                    adapter,
-                    message_bus,
-                    chat_run_registry,
-                    chat_service,
-                    session_id,
-                    user_id,
-                    agent_id,
-                    input_msg,
-                ):
-                    yield chunk
-
-            return StreamingResponse(
-                _stream(),
-                media_type="application/x-ndjson",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "X-Accel-Buffering": "no",
-                },
-            )
+                return StreamingResponse(
+                    _stream(),
+                    media_type="application/x-ndjson",
+                    headers={
+                        "Cache-Control": "no-cache",
+                        "X-Accel-Buffering": "no",
+                    },
+                )
+            except Exception:
+                current_tenant.clear()
+                raise
 
         return _handler
 
@@ -1119,11 +1127,7 @@ async def _ensure_agent(
     from agentscope.app.storage import AgentData, AgentRecord
 
     cached = state.agent_cache(user_id, agent_name)
-    if (
-        cached is not None
-        and cached[1] == system_prompt
-        and cached[2] == max_iters
-    ):
+    if cached is not None and cached[1] == system_prompt and cached[2] == max_iters:
         return cached[0]
 
     agent_id = cached[0] if cached is not None else None

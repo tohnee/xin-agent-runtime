@@ -100,9 +100,7 @@ class TestAuthMiddlewarePrincipalBinding:
             hashlib.sha256,
         ).digest()
         sig_b64 = base64.urlsafe_b64encode(signature).rstrip(b"=")
-        token = (
-            header.decode() + "." + payload.decode() + "." + sig_b64.decode()
-        )
+        token = header.decode() + "." + payload.decode() + "." + sig_b64.decode()
 
         parser = JwtClaimsParser(secret=secret)
         principal = parser.parse(token)
@@ -158,9 +156,7 @@ class TestAuthMiddlewarePrincipalBinding:
             hashlib.sha256,
         ).digest()
         sig_b64 = base64.urlsafe_b64encode(signature).rstrip(b"=")
-        token = (
-            header.decode() + "." + payload.decode() + "." + sig_b64.decode()
-        )
+        token = header.decode() + "." + payload.decode() + "." + sig_b64.decode()
 
         parser = JwtClaimsParser(secret=secret)
         mw = AuthMiddleware(app=None, jwt_parser=parser)
@@ -343,4 +339,4 @@ class TestKnowledgeToolTenantFromContext:
         assert current_tenant.get() == "test-tenant"
 
         current_tenant.clear()
-        assert current_tenant.get() == "default"
+        assert current_tenant.get() is None

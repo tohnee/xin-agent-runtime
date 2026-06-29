@@ -72,41 +72,47 @@ class TenantContext:
     call.
     """
 
-    _var: contextvars.ContextVar[str]
+    _var: contextvars.ContextVar[str | None]
 
-    def __init__(self, default_tenant: str = "default") -> None:
-        """Initialize with a default tenant id.
-
-        Args:
-            default_tenant (`str`):
-                The tenant id used when none has been set.
-        """
-        self._default = default_tenant
+    def __init__(self) -> None:
+        """Initialize with no default tenant (None means unset)."""
         self._var = contextvars.ContextVar(
             "xruntime_tenant_id",
-            default=default_tenant,
+            default=None,
         )
 
-    def set(self, tenant_id: str) -> None:
+    def set(self, tenant_id: str) -> contextvars.Token:
         """Set the current tenant id.
 
         Args:
             tenant_id (`str`):
                 The tenant id to set.
-        """
-        self._var.set(tenant_id)
 
-    def get(self) -> str:
+        Returns:
+            `contextvars.Token`: Token for resetting later.
+        """
+        return self._var.set(tenant_id)
+
+    def get(self) -> str | None:
         """Get the current tenant id.
 
         Returns:
-            `str`: The current tenant id, or the default if unset.
+            `str | None`: The current tenant id, or None if unset.
         """
         return self._var.get()
 
+    def reset(self, token: contextvars.Token) -> None:
+        """Reset to a previous value using a token from set().
+
+        Args:
+            token (`contextvars.Token`):
+                Token returned by a previous set() call.
+        """
+        self._var.reset(token)
+
     def clear(self) -> None:
-        """Reset to the default tenant id."""
-        self._var.set(self._default)
+        """Reset to unset state."""
+        self._var.set(None)
 
     @contextmanager
     def tenant(self, tenant_id: str) -> Generator[None, None, None]:
@@ -130,8 +136,8 @@ class TenantContext:
             self._var.reset(token)
 
 
-# Process-wide tenant context. Request handlers set it from the
-# ``x-tenant-id`` header so downstream code can read the active tenant
+# Process-wide tenant context. Auth middleware sets it from the
+# authenticated principal so downstream code can read the active tenant
 # without threading it through every call.
 current_tenant = TenantContext()
 

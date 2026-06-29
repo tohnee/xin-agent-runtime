@@ -1,5 +1,17 @@
 version: "3.9"
 
+networks:
+  xruntime-internal:
+    internal: false
+  xruntime-backend:
+    internal: true
+
+volumes:
+  redis-data:
+  xruntime-workspaces:
+  xruntime-knowledge:
+  xruntime-logs:
+
 services:
   xruntime:
     build:
@@ -11,17 +23,56 @@ services:
       - XRUNTIME_STORAGE_REDIS_HOST=redis
       - XRUNTIME_MESSAGE_BUS_REDIS_HOST=redis
       - XRUNTIME_SERVER_AUTH_ENABLED=true
+      - XRUNTIME_PRODUCTION=true
+      - XRUNTIME_WORKSPACE_BACKEND=docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - xruntime-workspaces:/var/lib/xruntime/workspaces
+      - xruntime-knowledge:/var/lib/xruntime/knowledge
+      - xruntime-logs:/var/log/xruntime
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    networks:
+      - xruntime-internal
+      - xruntime-backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8900/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 8G
+        reservations:
+          cpus: "1.0"
+          memory: 2G
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    tmpfs:
+      - /tmp
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
+    networks:
+      - xruntime-backend
     restart: unless-stopped
-
-volumes:
-  redis-data:
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-xruntime_redis_change_me}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G

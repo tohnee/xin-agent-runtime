@@ -119,6 +119,7 @@ def build_xruntime_app(config: XRuntimeConfig | None = None) -> Any:
         host=config.message_bus.redis_host,
         port=config.message_bus.redis_port,
         db=config.message_bus.redis_db,
+        password=config.message_bus.redis_password,
     )
 
     # Workspace backend selection via WorkspaceManagerFactory.
@@ -129,14 +130,14 @@ def build_xruntime_app(config: XRuntimeConfig | None = None) -> Any:
         WorkspaceManagerFactory,
     )
 
-    ws_backend = os.environ.get(
-        "XRUNTIME_WORKSPACE_BACKEND",
-        "local",
-    )
     ws_production = os.environ.get(
         "XRUNTIME_PRODUCTION",
         "",
     ).lower() in ("1", "true", "yes")
+    ws_backend = os.environ.get(
+        "XRUNTIME_WORKSPACE_BACKEND",
+        "docker" if ws_production else "local",
+    )
     ws_config = WorkspaceConfig(
         default_backend=ws_backend,
         allow_local_in_production=os.environ.get(

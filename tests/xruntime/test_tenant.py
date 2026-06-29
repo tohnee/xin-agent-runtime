@@ -56,28 +56,23 @@ class TestTenantContext:
         assert ctx.get() == "acme"
 
     def test_default_tenant(self) -> None:
-        """Default tenant should be 'default'."""
+        """Default should be None when unset."""
         ctx = TenantContext()
-        assert ctx.get() == "default"
-
-    def test_custom_default_tenant(self) -> None:
-        """Custom default tenant should be used."""
-        ctx = TenantContext(default_tenant="base")
-        assert ctx.get() == "base"
+        assert ctx.get() is None
 
     def test_clear(self) -> None:
-        """Clear should reset to default."""
+        """Clear should reset to None."""
         ctx = TenantContext()
         ctx.set("acme")
         ctx.clear()
-        assert ctx.get() == "default"
+        assert ctx.get() is None
 
     def test_context_manager(self) -> None:
         """Should work as a context manager."""
         ctx = TenantContext()
         with ctx.tenant("acme"):
             assert ctx.get() == "acme"
-        assert ctx.get() == "default"
+        assert ctx.get() is None
 
     def test_nested_context_manager(self) -> None:
         """Nested context managers should restore correctly."""
@@ -87,7 +82,7 @@ class TestTenantContext:
             with ctx.tenant("inner"):
                 assert ctx.get() == "inner"
             assert ctx.get() == "outer"
-        assert ctx.get() == "default"
+        assert ctx.get() is None
 
     async def test_async_isolation_between_tasks(self) -> None:
         """Concurrent async tasks should NOT see each other's tenant.

@@ -75,6 +75,8 @@ class MessageBusConfig(BaseModel):
             Redis port.
         redis_db (`int`):
             Redis database index.
+        redis_password (`str | None`):
+            Redis password.
         tenant_prefix (`str`):
             Key prefix for multi-tenant isolation.
     """
@@ -83,6 +85,7 @@ class MessageBusConfig(BaseModel):
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
+    redis_password: str | None = None
     tenant_prefix: str = "tenant:{tid}:"
 
 
