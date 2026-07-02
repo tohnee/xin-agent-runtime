@@ -1,0 +1,123 @@
+# MkDocs Material 配置 — Xin Agent Runtime 文档站点
+# https://squidfunk.github.io/mkdocs-material/
+
+site_name: Xin Agent Runtime 文档
+site_description: 企业级 Agent 开发运行时底座 — 完全 SOP 手册
+site_url: https://tohnee.github.io/xin-agent-runtime/
+repo_url: https://github.com/tohnee/xin-agent-runtime
+repo_name: tohnee/xin-agent-runtime
+edit_uri: edit/main/docs/
+
+# 版权
+copyright: Copyright &copy; 2026 Xin Agent Runtime Team
+
+# 主题
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.sections      # 章节折叠
+    - navigation.expand         # 默认展开
+    - navigation.top           # 返回顶部按钮
+    - navigation.indexes       # 索引页
+    - search.suggest           # 搜索建议
+    - search.highlight         # 搜索高亮
+    - content.code.copy        # 代码块复制按钮
+    - content.code.annotate    # 代码注释
+    - content.tabs.link        # 标签页
+    - toc.follow               # 目录跟随
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色模式
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: 切换到浅色模式
+  font:
+    text: Noto Sans SC
+    code: JetBrains Mono
+  icon:
+    logo: material/console-network
+    repo: fontawesome/brands/github
+
+# Markdown 扩展
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+# 插件
+plugins:
+  - search:
+      lang:
+        - ja  # 日语分词器对中文搜索效果较好
+        - en
+
+# 导航
+nav:
+  - 首页: index.md
+  - 架构:
+      - 架构总览: xruntime/ARCHITECTURE.md
+      - 模块架构: xruntime/MODULE-ARCHITECTURE.md
+      - 多租户隔离: xruntime/MULTI-TENANT-ISOLATION.md
+      - 沙箱架构: xruntime/SANDBOX-ARCHITECTURE.md
+      - 安全架构: xruntime/FINAL-SECURITY-ARCHITECTURE.md
+  - 部署:
+      - 快速开始: xruntime/QUICKSTART.md
+      - 部署指南: xruntime/DEPLOYMENT-GUIDE.md
+      - Docker 部署: xruntime/DOCKER_DEPLOY.md
+      - 生产部署: xruntime/PRODUCTION-DEPLOYMENT.md
+      - 运维手册: xruntime/OPS-GUIDE.md
+  - 开发:
+      - SDK 指南: xruntime/SDK-GUIDE.md
+      - 代码实现指南: xruntime/CODE-IMPLEMENTATION-GUIDE.md
+      - CI/CD 指南: xruntime/CI-CD-GUIDE.md
+      - Langfuse 指南: xruntime/LANGFUSE-GUIDE.md
+      - 迁移指南: xruntime/MIGRATION-GUIDE.md
+  - 路线图:
+      - 企业路线图: xruntime/ENTERPRISE-RUNTIME-ROADMAP.md
+      - 下一阶段计划: xruntime/NEXT-PHASE-PLAN.md
+      - 项目 Roadmap: roadmap.md
+  - 更新日志:
+      - 变更日志: changelog.md
+      - 新闻: NEWS.md
+      - 中文新闻: NEWS_zh.md
+
+# 额外配置
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/tohnee/xin-agent-runtime
+  generator: false
+
+# 监听
+watch:
+  - docs/
+  - mkdocs.yml
