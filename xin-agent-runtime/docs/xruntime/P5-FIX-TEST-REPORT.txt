@@ -1,0 +1,24 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/tohnee/Trae/github/xin-agent-runtime/agentscope
+configfile: pyproject.toml
+plugins: anyio-4.14.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 245 items
+
+tests/xruntime/test_anthropic_adapter.py ....................            [  8%]
+tests/xruntime/test_app.py .......                                       [ 11%]
+tests/xruntime/test_claude_code_adapter.py ........................      [ 20%]
+tests/xruntime/test_config.py .............                              [ 26%]
+tests/xruntime/test_gateway_smoke.py ....                                [ 27%]
+tests/xruntime/test_middlewares.py ..................................    [ 41%]
+tests/xruntime/test_migrator.py ................                         [ 48%]
+tests/xruntime/test_opencode_adapter.py ........................         [ 57%]
+tests/xruntime/test_orchestrator.py ...................                  [ 65%]
+tests/xruntime/test_p5_acceptance.py ............                        [ 70%]
+tests/xruntime/test_request_adapter.py ..................                [ 77%]
+tests/xruntime/test_review_fixes.py ...............                      [ 84%]
+tests/xruntime/test_sdk_plugins_p4.py ............................       [ 95%]
+tests/xruntime/test_tenant.py ...........                                [100%]
+
+============================= 245 passed in 0.77s ==============================

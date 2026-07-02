@@ -1,0 +1,135 @@
+# ===================================================================
+# 本地验证用 Docker Compose 脚本
+# 模拟生产环境配置，验证 YAML 模板有效性
+# 用法: docker compose -f docker-compose.local-verify.yml up -d
+# 验证: ./verify-local-deployment.sh
+# ===================================================================
+
+version: "3.8"
+
+services:
+  # ── XRuntime API (模拟 1 个 Pod) ──
+  xruntime-api:
+    build: .
+    container_name: xruntime-api
+    ports:
+      - "8900:8900"
+    environment:
+      XRUNTIME_OBSERVABILITY_OTEL_ENABLED: "true"
+      XRUNTIME_OBSERVABILITY_OTEL_ENDPOINT: "http://otel-collector:4317"
+      XRUNTIME_OBSERVABILITY_AUDIT_ENABLED: "true"
+      XRUNTIME_CREDENTIAL_BROKER_REDIS_URL: "redis://redis:6379/0"
+      XRUNTIME_CREDENTIAL_BROKER_AUTO_ROTATE_ENABLED: "true"
+      # 模拟 K8s ConfigMap 中的值
+      WORKER_CONCURRENCY: "50"
+      MAX_CONCURRENT_STEPS: "100"
+    depends_on:
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8900/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+    restart: unless-stopped
+
+  # ── XRuntime Worker (模拟 1 个 Worker Pod) ──
+  xruntime-worker:
+    build: .
+    container_name: xruntime-worker
+    command: ["python", "-c", "print('worker ready')"]
+    environment:
+      TASK_QUEUE_URL: "redis://redis:6379/1"
+      WORKER_CONCURRENCY: "20"
+      XRUNTIME_CREDENTIAL_BROKER_REDIS_URL: "redis://redis:6379/0"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: "no"
+
+  # ── Redis ──
+  redis:
+    image: redis:7-alpine
+    container_name: xruntime-redis
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ── OTel Collector ──
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.103.0
+    container_name: xruntime-otel
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    command: ["--config=/etc/otelcol/config.yaml"]
+    depends_on:
+      - jaeger
+    restart: unless-stopped
+
+  # ── Jaeger ──
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: xruntime-jaeger
+    ports:
+      - "16686:16686"
+      - "14250:14250"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    restart: unless-stopped
+
+  # ── Prometheus ──
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: xruntime-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--alert.rule-files=/etc/prometheus/alerts.yml"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    depends_on:
+      - alertmanager
+    restart: unless-stopped
+
+  # ── Alertmanager ──
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: xruntime-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  prometheus-data:

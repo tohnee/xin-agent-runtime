@@ -1,0 +1,81 @@
+name: Observability Check
+
+on: [push, pull_request]
+
+jobs:
+  validate-alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Prometheus alert rules
+        run: |
+          docker run --rm \
+            -v $(pwd)/deploy/alerts.yml:/etc/prometheus/alerts.yml \
+            prom/prometheus:v2.52.0 \
+            promtool check rules /etc/prometheus/alerts.yml
+      - name: Validate Prometheus config
+        run: |
+          docker run --rm \
+            -v $(pwd)/deploy/prometheus.yml:/etc/prometheus/prometheus.yml \
+            -v $(pwd)/deploy/alerts.yml:/etc/prometheus/alerts.yml \
+            prom/prometheus:v2.52.0 \
+            promtool check config /etc/prometheus/prometheus.yml
+
+  verify-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: pip install -e ".[dev,xruntime-dev]"
+      - name: Verify metrics exist in codebase
+        run: |
+          python -c "
+          from xruntime._runtime._workflow._metrics import WorkflowMetrics
+          m = WorkflowMetrics()
+          m.record_step('wf', 's1', 'COMPLETED')
+          m.record_step_duration('wf', 's1', 100.0)
+          m.record_checkpoint_save('wf')
+          m.record_resume('wf')
+          text = m.export_prometheus()
+          assert 'workflow_step_total' in text
+          assert 'workflow_step_duration_ms' in text
+          assert 'workflow_checkpoint_save_total' in text
+          assert 'workflow_resume_total' in text
+          print('All metrics verified')
+          "
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: pip install -e ".[dev,xruntime-dev]"
+      - name: Run observability smoke test
+        run: |
+          python -c "
+          import asyncio
+          from xruntime._runtime._workflow import (
+              WorkflowBuilder, FunctionExecutor, run_workflow,
+              WorkflowTracer, WorkflowMetrics, WorkflowAuditLogger,
+          )
+
+          async def main():
+              wf = WorkflowBuilder().id('smoke').step(
+                  id='s1', agent='a', prompt='p').build()
+              result = await run_workflow(
+                  wf, FunctionExecutor(lambda s, c: 'ok'),
+                  tracer=WorkflowTracer(endpoint=''),
+                  metrics=WorkflowMetrics(),
+                  audit=WorkflowAuditLogger(),
+              )
+              assert result.status == 'COMPLETED'
+              print('Smoke test passed')
+
+          asyncio.run(main())
+          "

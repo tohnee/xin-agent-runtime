@@ -1,0 +1,40 @@
+name: Performance Benchmark
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,xruntime-dev]"
+
+      - name: Run benchmark scenarios
+        run: |
+          python scripts/benchmark.py --all --iterations 50 --output bench-results.json
+
+      - name: Compare with baseline (if exists)
+        run: |
+          if [ -f bench-baseline.json ]; then
+            python scripts/benchmark.py --all --iterations 50 --compare bench-baseline.json --threshold 10.0
+          else
+            echo "No baseline found. Creating one."
+            cp bench-results.json bench-baseline.json
+          fi
+        continue-on-error: true
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: bench-results.json

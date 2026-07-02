@@ -1,0 +1,106 @@
+# Prometheus alert rules for XRuntime workflow observability.
+# Verified against P3-D metrics: workflow_step_total / duration / checkpoint.
+
+groups:
+  - name: workflow_execution_alerts
+    rules:
+      - alert: WorkflowHighFailureRate
+        expr: |
+          sum(rate(workflow_step_total{status="FAILED"}[5m]))
+          /
+          sum(rate(workflow_step_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Workflow failure rate > 5%"
+          description: "Step failure rate is {{ $value | humanizePercentage }}."
+
+      - alert: WorkflowStepHighLatency
+        expr: |
+          workflow_step_duration_ms_avg > 5000
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Workflow step avg latency > 5s"
+          description: "Step {{ $labels.step }} avg latency is {{ $value }}ms."
+
+      - alert: CheckpointSaveFailure
+        expr: |
+          rate(workflow_checkpoint_save_total[5m]) == 0
+          and
+          rate(workflow_step_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "No checkpoint saves in 5 minutes"
+          description: "Checkpoints not being saved despite active workflows."
+
+  - name: credential_broker_alerts
+    rules:
+      - alert: CredentialExpiringSoon
+        expr: xruntime_credential_expiry_seconds < 300
+        for: 1m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Credential expiring in < 5 minutes"
+
+      - alert: AutoRotationFailure
+        expr: rate(xruntime_auto_rotation_failures_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Auto-rotation failure detected"
+
+  - name: approval_alerts
+    rules:
+      - alert: ApprovalTimeout
+        expr: xruntime_approval_timed_out_total > 0
+        for: 1m
+        labels:
+          severity: warning
+          team: ops
+        annotations:
+          summary: "Approval request timed out"
+
+      - alert: ApprovalBacklog
+        expr: xruntime_approval_pending_count > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: ops
+        annotations:
+          summary: "Approval backlog > 10"
+
+  - name: system_resource_alerts
+    rules:
+      - alert: OtelCollectorHighMemory
+        expr: process_resident_memory_bytes{job="otel-collector"} > 512000000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OTel Collector memory > 512MB"
+
+      - alert: RedisConnectionPoolExhausted
+        expr: |
+          xruntime_redis_pool_active_connections
+          /
+          xruntime_redis_pool_max_connections
+          > 0.9
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Redis connection pool > 90% utilized"

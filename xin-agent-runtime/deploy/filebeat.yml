@@ -1,0 +1,22 @@
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/xruntime/audit.jsonl
+    json.keys_under_root: true
+    json.add_error_key: true
+    fields:
+      log_type: xruntime_audit
+    fields_under_root: true
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  index: "xruntime-audit-%{+yyyy.MM.dd}"
+
+setup.ilm:
+  enabled: true
+  policy_name: xruntime-audit
+  rollover_alias: xruntime-audit
+  pattern: "{now/d}-000001"
+  warm_age: 30d
+  delete_age: 90d

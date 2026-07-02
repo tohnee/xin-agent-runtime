@@ -1,0 +1,447 @@
+# ===================================================================
+# XRuntime 统一部署 YAML 模板
+# 包含: Docker Compose + Kubernetes + Prometheus + Alertmanager + OTel
+# 用法: 按需取消注释对应段落，替换 <PLACEHOLDER> 占位符
+# ===================================================================
+
+# ──────────────────────────────────────────────────────────────
+# 1. Docker Compose 完整可观测性栈
+# 文件: deploy/docker-compose.observability.yml
+# 用法: docker compose -f docker-compose.observability.yml up -d
+# ──────────────────────────────────────────────────────────────
+
+version: "3.8"
+
+services:
+  xruntime:
+    build: .
+    ports: ["8900:8900"]
+    environment:
+      XRUNTIME_OBSERVABILITY_OTEL_ENABLED: "true"
+      XRUNTIME_OBSERVABILITY_OTEL_ENDPOINT: "http://otel-collector:4317"
+      XRUNTIME_OBSERVABILITY_AUDIT_ENABLED: "true"
+      XRUNTIME_CREDENTIAL_BROKER_REDIS_URL: "redis://redis:6379/0"
+      XRUNTIME_CREDENTIAL_BROKER_AUTO_ROTATE_ENABLED: "true"
+    depends_on: [redis, otel-collector]
+    deploy:
+      resources:
+        limits: {cpus: "2.0", memory: 1G}
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: >
+      redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+      --appendonly yes --appendfsync everysec
+    volumes: ["redis-data:/data"]
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 512M}
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.103.0
+    ports: ["4317:4317", "4318:4318", "8889:8889"]
+    volumes: ["./otel-collector-config.yaml:/etc/otelcol/config.yaml"]
+    command: ["--config=/etc/otelcol/config.yaml"]
+    depends_on: [jaeger]
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports: ["16686:16686", "14250:14250"]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    ports: ["9090:9090"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--alert.rule-files=/etc/prometheus/alerts.yml"
+      - "--storage.tsdb.retention.time=15d"
+    depends_on: [alertmanager]
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    ports: ["9093:9093"]
+    volumes: ["./alertmanager.yml:/etc/alertmanager/alertmanager.yml"]
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports: ["9200:9200"]
+    volumes: ["es-data:/usr/share/elasticsearch/data"]
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.14.0
+    ports: ["5601:5601"]
+    environment:
+      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+    depends_on: [elasticsearch]
+    restart: unless-stopped
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.14.0
+    user: root
+    volumes:
+      - /var/log/xruntime:/var/log/xruntime:ro
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    depends_on: [elasticsearch]
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  prometheus-data:
+  es-data:
+
+# ═══════════════════════════════════════════════════════════════
+# Kubernetes 部署配置
+# 用法: kubectl apply -f deploy/k8s-xruntime-production.yaml
+# ═══════════════════════════════════════════════════════════════
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: xruntime
+  labels: {name: xruntime}
+
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: xruntime-config
+  namespace: xruntime
+data:
+  XRUNTIME_OBSERVABILITY_OTEL_ENABLED: "true"
+  XRUNTIME_OBSERVABILITY_OTEL_ENDPOINT: "http://otel-collector.observability:4317"
+  XRUNTIME_OBSERVABILITY_AUDIT_ENABLED: "true"
+  XRUNTIME_CREDENTIAL_BROKER_REDIS_URL: "redis://redis-cluster:6379/0"
+  XRUNTIME_CREDENTIAL_BROKER_AUTO_ROTATE_ENABLED: "true"
+
+---
+# Secret (生产环境用 SealedSecrets/Vault)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: xruntime-secrets
+  namespace: xruntime
+type: Opaque
+stringData:
+  OPENAI_API_KEY: "<OPENAI_API_KEY>"
+  ANTHROPIC_API_KEY: "<ANTHROPIC_API_KEY>"
+  REDIS_PASSWORD: "<REDIS_PASSWORD>"
+
+---
+# XRuntime API Deployment (10 replicas = 1000 并发)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xruntime-api
+  namespace: xruntime
+  labels: {app: xruntime-api}
+spec:
+  replicas: 10
+  selector:
+    matchLabels: {app: xruntime-api}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 3, maxUnavailable: 1}
+  template:
+    metadata:
+      labels: {app: xruntime-api}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8900"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: xruntime
+          image: xruntime:latest
+          ports: [{containerPort: 8900, name: http}]
+          envFrom:
+            - configMapRef: {name: xruntime-config}
+            - secretRef: {name: xruntime-secrets}
+          resources:
+            requests: {cpu: "500m", memory: "512Mi"}
+            limits: {cpu: "1000m", memory: "1Gi"}
+          livenessProbe:
+            httpGet: {path: /health, port: 8900}
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet: {path: /ready, port: 8900}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command: ["python", "-c", "import asyncio; asyncio.sleep(5)"]
+      terminationGracePeriodSeconds: 60
+
+---
+# API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: xruntime-api
+  namespace: xruntime
+spec:
+  selector: {app: xruntime-api}
+  ports: [{port: 80, targetPort: 8900, name: http}]
+  type: ClusterIP
+
+---
+# Worker Deployment (5 replicas = 100 并发)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xruntime-worker
+  namespace: xruntime
+  labels: {app: xruntime-worker}
+spec:
+  replicas: 5
+  selector:
+    matchLabels: {app: xruntime-worker}
+  template:
+    metadata:
+      labels: {app: xruntime-worker}
+    spec:
+      containers:
+        - name: worker
+          image: xruntime:latest
+          command: ["python", "-m", "xruntime.worker"]
+          envFrom:
+            - configMapRef: {name: xruntime-config}
+          env:
+            - {name: TASK_QUEUE_URL, value: "redis://redis-cluster:6379/1"}
+            - {name: WORKER_CONCURRENCY, value: "20"}
+          resources:
+            requests: {cpu: "500m", memory: "512Mi"}
+            limits: {cpu: "1000m", memory: "1Gi"}
+
+---
+# HPA
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: xruntime-api-hpa
+  namespace: xruntime
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: xruntime-api
+  minReplicas: 5
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+    - type: Resource
+      resource:
+        name: memory
+        target: {type: Utilization, averageUtilization: 80}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies: [{type: Percent, value: 50, periodSeconds: 60}]
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies: [{type: Percent, value: 20, periodSeconds: 60}]
+
+---
+# Ingress (TLS)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: xruntime-ingress
+  namespace: xruntime
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+    - hosts: ["xruntime.<YOUR_DOMAIN>"]
+      secretName: xruntime-tls
+  rules:
+    - host: xruntime.<YOUR_DOMAIN>
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: xruntime-api
+                port: {number: 80}
+
+---
+# PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: xruntime-api-pdb
+  namespace: xruntime
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels: {app: xruntime-api}
+
+---
+# NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: xruntime-netpol
+  namespace: xruntime
+spec:
+  podSelector:
+    matchLabels: {app: xruntime-api}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {name: ingress-nginx}
+      ports: [{protocol: TCP, port: 8900}]
+  egress:
+    - to: []
+      ports: [{protocol: UDP, port: 53}]
+    - to:
+        - podSelector: {matchLabels: {app: redis}}
+      ports: [{protocol: TCP, port: 6379}]
+    - to:
+        - podSelector: {matchLabels: {app: otel-collector}}
+      ports: [{protocol: TCP, port: 4317}]
+    - to: []
+      ports: [{protocol: TCP, port: 443}]
+
+---
+# ServiceMonitor (Prometheus Operator)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: xruntime-metrics
+  namespace: xruntime
+  labels: {release: prometheus}
+spec:
+  selector:
+    matchLabels: {app: xruntime-api}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 10s
+      scrapeTimeout: 5s
+
+---
+# PrometheusRule (集群内告警)
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: xruntime-alerts
+  namespace: xruntime
+  labels: {release: prometheus}
+spec:
+  groups:
+    - name: workflow_execution_alerts
+      rules:
+        - alert: WorkflowHighFailureRate
+          expr: |
+            sum(rate(workflow_step_total{status="FAILED"}[5m]))
+            / sum(rate(workflow_step_total[5m])) > 0.05
+          for: 5m
+          labels: {severity: critical, team: platform}
+          annotations:
+            summary: "Workflow failure rate > 5%"
+        - alert: WorkflowStepHighLatency
+          expr: workflow_step_duration_ms_avg > 5000
+          for: 10m
+          labels: {severity: warning}
+          annotations:
+            summary: "Step avg latency > 5s"
+        - alert: CheckpointSaveFailure
+          expr: |
+            rate(workflow_checkpoint_save_total[5m]) == 0
+            and rate(workflow_step_total[5m]) > 0
+          for: 5m
+          labels: {severity: critical}
+          annotations:
+            summary: "No checkpoint saves in 5m"
+
+    - name: credential_broker_alerts
+      rules:
+        - alert: CredentialExpiringSoon
+          expr: xruntime_credential_expiry_seconds < 300
+          for: 1m
+          labels: {severity: warning, team: security}
+          annotations:
+            summary: "Credential expiring < 5min"
+        - alert: AutoRotationFailure
+          expr: rate(xruntime_auto_rotation_failures_total[5m]) > 0
+          for: 2m
+          labels: {severity: critical, team: security}
+          annotations:
+            summary: "Auto-rotation failure"
+
+    - name: approval_alerts
+      rules:
+        - alert: ApprovalTimeout
+          expr: xruntime_approval_timed_out_total > 0
+          for: 1m
+          labels: {severity: warning, team: ops}
+          annotations:
+            summary: "Approval timed out"
+        - alert: ApprovalBacklog
+          expr: xruntime_approval_pending_count > 10
+          for: 5m
+          labels: {severity: warning, team: ops}
+          annotations:
+            summary: "Approval backlog > 10"
+
+    - name: system_resource_alerts
+      rules:
+        - alert: OtelCollectorHighMemory
+          expr: process_resident_memory_bytes{job="otel-collector"} > 512000000
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "OTel memory > 512MB"
+        - alert: RedisConnectionPoolExhausted
+          expr: |
+            xruntime_redis_pool_active_connections
+            / xruntime_redis_pool_max_connections > 0.9
+          for: 2m
+          labels: {severity: critical, team: platform}
+          annotations:
+            summary: "Redis pool > 90%"
+
+    - name: scalability_alerts
+      rules:
+        - alert: HighConcurrencyUtilization
+          expr: xruntime_concurrency_utilization > 0.9
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "Concurrency pool > 90%"
+        - alert: TaskQueueBacklog
+          expr: xruntime_taskqueue_pending_count > 100
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "Task queue backlog > 100"

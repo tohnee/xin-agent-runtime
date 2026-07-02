@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企业级 Agent Runtime 选型深度报告 — Vercel eve · AgentScope 2.0 · DeerFlow 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0e1117;
+  --bg-2: #141820;
+  --bg-3: #1a2030;
+  --bg-card: #161c28;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.15);
+  --text-primary: #e8eaf0;
+  --text-secondary: #8a90a0;
+  --text-muted: #505868;
+  --blue: #4a8fff;
+  --blue-dim: rgba(74,143,255,0.12);
+  --blue-dim2: rgba(74,143,255,0.06);
+  --green: #1baf7a;
+  --green-dim: rgba(27,175,122,0.12);
+  --amber: #f0a500;
+  --amber-dim: rgba(240,165,0,0.12);
+  --orange: #ff6b35;
+  --orange-dim: rgba(255,107,53,0.12);
+  --red: #e55;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.7;
+  font-size: 15px;
+}
+
+/* ── LAYOUT ── */
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+
+/* ── LEFT NAV ── */
+.nav {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  padding: 32px 0;
+  background: var(--bg);
+}
+
+.nav-logo {
+  padding: 0 20px 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.nav-logo .eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.nav-logo .title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.nav-section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 12px 20px 6px;
+}
+
+.nav a {
+  display: block;
+  padding: 7px 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+.nav a:hover {
+  color: var(--text-primary);
+  border-left-color: var(--border-strong);
+  background: rgba(255,255,255,0.03);
+}
+
+.nav a.active {
+  color: var(--blue);
+  border-left-color: var(--blue);
+  background: var(--blue-dim2);
+}
+
+.nav-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  margin-top: -1px;
+}
+
+/* ── MAIN CONTENT ── */
+.main {
+  max-width: 860px;
+  padding: 48px 56px;
+}
+
+/* ── HERO ── */
+.hero {
+  padding-bottom: 40px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 56px;
+}
+
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--orange);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 1px;
+  background: var(--orange);
+}
+
+.hero h1 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+.hero h1 em {
+  font-style: normal;
+  color: var(--blue);
+}
+
+.hero-lead {
+  font-size: 16px;
+  color: var(--text-secondary);
+  max-width: 640px;
+  line-height: 1.75;
+  margin-bottom: 28px;
+}
+
+.hero-meta {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.meta-item span {
+  color: var(--text-secondary);
+}
+
+/* ── VERDICT STRIP ── */
+.verdict-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 56px;
+}
+
+.verdict-cell {
+  background: var(--bg-card);
+  padding: 20px 22px;
+  position: relative;
+}
+
+.verdict-cell::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.verdict-cell.blue::before { background: var(--blue); }
+.verdict-cell.green::before { background: var(--green); }
+.verdict-cell.amber::before { background: var(--amber); }
+
+.verdict-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.verdict-cell.blue .verdict-label { color: var(--blue); }
+.verdict-cell.green .verdict-label { color: var(--green); }
+.verdict-cell.amber .verdict-label { color: var(--amber); }
+
+.verdict-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.verdict-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── SECTION ── */
+.section {
+  margin-bottom: 56px;
+  scroll-margin-top: 24px;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.section h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.section h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  margin-top: 28px;
+}
+
+.section p {
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  max-width: 700px;
+}
+
+.section p:last-child { margin-bottom: 0; }
+
+/* ── CALLOUT ── */
+.callout {
+  border-left: 3px solid var(--blue);
+  background: var(--blue-dim2);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 700px;
+}
+
+.callout.amber { border-left-color: var(--amber); background: var(--amber-dim); }
+.callout.green { border-left-color: var(--green); background: var(--green-dim); }
+.callout.orange { border-left-color: var(--orange); background: var(--orange-dim); }
+
+.callout strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* ── RADAR SECTION ── */
+.radar-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  margin: 24px 0;
+}
+
+.radar-section-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.radar-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.rtoggle {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rtoggle:hover { background: rgba(255,255,255,0.05); }
+.rtoggle.active-blue { border-color: var(--blue); background: var(--blue-dim); color: var(--blue); }
+.rtoggle.active-green { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+.rtoggle.active-amber { border-color: var(--amber); background: var(--amber-dim); color: var(--amber); }
+
+.radar-canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  height: 340px;
+}
+
+/* ── MATRIX TABLE ── */
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 13px;
+}
+
+.matrix-table thead th {
+  text-align: left;
+  padding: 10px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.matrix-table thead th:nth-child(2) { color: var(--blue); }
+.matrix-table thead th:nth-child(3) { color: var(--green); }
+.matrix-table thead th:nth-child(4) { color: var(--amber); }
+
+.matrix-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+.matrix-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+
+.matrix-table tbody td {
+  padding: 12px 14px;
+  vertical-align: top;
+  color: var(--text-secondary);
+}
+
+.matrix-table tbody td:first-child {
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  min-width: 140px;
+}
+
+.matrix-table tbody td .dim {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 2px;
+}
+
+/* Score dots */
+.score-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.dot.filled-blue { background: var(--blue); }
+.dot.filled-green { background: var(--green); }
+.dot.filled-amber { background: var(--amber); }
+.dot.empty-blue { background: transparent; border: 1px solid var(--blue); opacity: 0.4; }
+.dot.empty-green { background: transparent; border: 1px solid var(--green); opacity: 0.4; }
+.dot.empty-amber { background: transparent; border: 1px solid var(--amber); opacity: 0.4; }
+
+.score-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── PILLAR CARDS ── */
+.pillar-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.pillar-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.pillar-card-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.pillar-card h4 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.pillar-card p {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: none;
+  margin: 0;
+}
+
+/* ── COMPARISON CARDS ── */
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.compare-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.compare-card-header {
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-card-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.compare-card.blue .compare-card-label { color: var(--blue); }
+.compare-card.green .compare-card-label { color: var(--green); }
+.compare-card.amber .compare-card-label { color: var(--amber); }
+
+.compare-card-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.compare-card-type {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.compare-card-body {
+  padding: 14px 18px;
+}
+
+.feature-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.feature-row:last-child { border-bottom: none; }
+
+.feature-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.feature-icon.yes-blue { color: var(--blue); }
+.feature-icon.yes-green { color: var(--green); }
+.feature-icon.yes-amber { color: var(--amber); }
+.feature-icon.no { color: var(--text-muted); }
+.feature-icon.partial { color: var(--amber); }
+
+/* ── SELECTION MATRIX ── */
+.select-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.select-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.select-card-top {
+  padding: 16px 18px 12px;
+}
+
+.select-card.blue .select-card-top { background: var(--blue-dim); border-bottom: 1px solid rgba(74,143,255,0.2); }
+.select-card.green .select-card-top { background: var(--green-dim); border-bottom: 1px solid rgba(27,175,122,0.2); }
+.select-card.amber .select-card-top { background: var(--amber-dim); border-bottom: 1px solid rgba(240,165,0,0.2); }
+
+.select-card-when {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.select-card.blue .select-card-when { color: var(--blue); }
+.select-card.green .select-card-when { color: var(--green); }
+.select-card.amber .select-card-when { color: var(--amber); }
+
+.select-card-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.select-card-body {
+  padding: 14px 18px;
+  background: var(--bg-card);
+}
+
+.select-item {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 0;
+  color: var(--text-secondary);
+}
+
+.select-check { flex-shrink: 0; }
+.select-check.yes { color: var(--green); }
+.select-check.no { color: var(--text-muted); }
+
+/* ── ARCH TABLE ── */
+.arch-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 13px;
+}
+
+.arch-table th {
+  text-align: left;
+  padding: 10px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.arch-table td {
+  padding: 12px 16px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.arch-table td:first-child {
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+.arch-table tr:last-child td { border-bottom: none; }
+
+.tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  margin-right: 4px;
+  margin-bottom: 2px;
+}
+
+.tag.blue { background: var(--blue-dim); color: var(--blue); }
+.tag.green { background: var(--green-dim); color: var(--green); }
+.tag.amber { background: var(--amber-dim); color: var(--amber); }
+.tag.orange { background: var(--orange-dim); color: var(--orange); }
+.tag.muted { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+
+/* ── CONCLUSION ── */
+.conclusion-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-top: 3px solid var(--orange);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  padding: 28px 32px;
+  margin: 20px 0;
+}
+
+.conclusion-box h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+  margin-top: 0;
+}
+
+.conclusion-box p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 680px;
+  margin-bottom: 12px;
+}
+
+/* ── BETA TAG ── */
+.beta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  background: rgba(255,107,53,0.12);
+  color: var(--orange);
+  border: 1px solid rgba(255,107,53,0.25);
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+/* ── PRINT / NARROW ── */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .nav { position: static; height: auto; }
+  .main { padding: 28px 20px; }
+  .compare-grid, .select-grid { grid-template-columns: 1fr; }
+  .pillar-grid { grid-template-columns: 1fr; }
+  .verdict-strip { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- ── NAV ── -->
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="eyebrow">技术选型报告</div>
+    <div class="title">企业级 Agent Runtime<br>深度对比 2026.06</div>
+  </div>
+
+  <div class="nav-section-label">概述</div>
+  <a href="#overview" class="active"><span class="nav-dot" style="background:var(--orange)"></span>核心判断</a>
+  <a href="#signal"><span class="nav-dot" style="background:var(--blue)"></span>平台信号</a>
+
+  <div class="nav-section-label">框架解析</div>
+  <a href="#vercel"><span class="nav-dot" style="background:var(--blue)"></span>Vercel eve / Agent Stack</a>
+  <a href="#agentscope"><span class="nav-dot" style="background:var(--green)"></span>AgentScope 2.0</a>
+  <a href="#deerflow"><span class="nav-dot" style="background:var(--amber)"></span>DeerFlow 2.0</a>
+
+  <div class="nav-section-label">决策框架</div>
+  <a href="#matrix"><span class="nav-dot" style="background:var(--text-muted)"></span>六轴对比矩阵</a>
+  <a href="#selection"><span class="nav-dot" style="background:var(--text-muted)"></span>选型决策树</a>
+  <a href="#arch"><span class="nav-dot" style="background:var(--text-muted)"></span>架构对位参考</a>
+
+  <div class="nav-section-label">结论</div>
+  <a href="#conclusion"><span class="nav-dot" style="background:var(--orange)"></span>最终结论</a>
+</nav>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- HERO -->
+  <div class="hero" id="overview">
+    <div class="hero-eyebrow">Agent Runtime 选型 · 2026 年 6 月基准</div>
+    <h1>谁在承担<br><em>生产 Runtime</em> 的默认成本</h1>
+    <p class="hero-lead">
+      Vercel 在 2026 年 6 月将分散的 runtime primitive 组合成平台默认能力，这不只是又一个 agent 框架发布。
+      这份报告从企业落地视角，对 Vercel eve、AgentScope 2.0、DeerFlow 2.0 进行六维深度拆解，给出可操作的选型判断。
+    </p>
+    <div class="hero-meta">
+      <div class="meta-item">基准日期 <span>2026-06</span></div>
+      <div class="meta-item">框架数量 <span>3</span></div>
+      <div class="meta-item">评估维度 <span>6 轴</span></div>
+      <div class="meta-item">数据来源 <span>官方文档 + 公开架构材料</span></div>
+    </div>
+  </div>
+
+  <!-- VERDICT STRIP -->
+  <div class="verdict-strip">
+    <div class="verdict-cell blue">
+      <div class="verdict-label">Vercel eve / Agent Stack</div>
+      <div class="verdict-name">平台级生产运行时</div>
+      <div class="verdict-desc">最短生产路径，平台承担 durability、sandbox、approvals 默认成本；强平台绑定，私有化受限。</div>
+    </div>
+    <div class="verdict-cell green">
+      <div class="verdict-label">AgentScope 2.0</div>
+      <div class="verdict-name">可自托管 Framework-Runtime Hybrid</div>
+      <div class="verdict-desc">企业自控 runtime 边界的最优底座；permission、workspace、OTel 等层全部自控；需自组控制面。</div>
+    </div>
+    <div class="verdict-cell amber">
+      <div class="verdict-label">DeerFlow 2.0</div>
+      <div class="verdict-name">Super-agent Harness</div>
+      <div class="verdict-desc">深研/coding 长任务开箱即用；治理外壳（auth、policy、audit）全部需要自建。</div>
+    </div>
+  </div>
+
+  <!-- SECTION: 平台信号 -->
+  <section class="section" id="signal">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2>Vercel 发出的平台信号</h2>
+    </div>
+
+    <p>
+      这次判断大体成立，而且比"Vercel 又发了一个 agent 框架"更重要。原因不是 eve 本身有多新，
+      而是 Vercel 在 2026 年 6 月把一组过去分散在不同项目里的 runtime primitive 明确组合成了平台默认能力。
+    </p>
+
+    <div class="callout orange">
+      <strong>核心转变：</strong>框架是入口，运行时才是护城河。Vercel 这次释放的是从
+      <strong>「agent 能不能做」</strong>转向<strong>「agent 能不能稳定、安全、可追责地做」</strong>的产品分水岭信号。
+    </div>
+
+    <h3>六个关键支柱</h3>
+    <div class="pillar-grid">
+      <div class="pillar-card">
+        <div class="pillar-card-num">PILLAR 01</div>
+        <h4>Durability — 可恢复执行</h4>
+        <p>Workflows 可暂停数分钟到数月，通过 deterministic replay 从精确位置恢复。WorkflowAgent 把 durable agent loop 直接带进 AI SDK 7。</p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-card-num">PILLAR 02</div>
+        <h4>Sandbox — 隔离执行环境</h4>
+        <p>Firecracker microVM 语义，支持文件、端口、snapshot、drive 与 network policy，默认可持久化快照。</p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-card-num">PILLAR 03</div>
+        <h4>AI Gateway — 模型层解耦</h4>
+        <p>统一 API、预算控制、监控、负载均衡和 fallback。将模型提供方从 agent 逻辑中完全解耦。</p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-card-num">PILLAR 04</div>
+        <h4>Connect — 短期凭证体系</h4>
+        <p>把长期 token 改成按任务发放的短期 scoped credential，动作归因到具体用户。HMAC 签名防伪造。</p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-card-num">PILLAR 05</div>
+        <h4>Observability — 原生可观测</h4>
+        <p>Dashboard 原生 logs、traces、spans，Drains 导出到外部系统，AI Gateway usage/spend 统一监控。</p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-card-num">PILLAR 06</div>
+        <h4>Evals — 评估一等公民</h4>
+        <p>eve 框架把 evals 直接放进范式，支持按部署和定时运行。评估不是插件，是 CI 一部分。</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>重要背景：</strong>这个方向不是 Vercel 发明的。AgentScope 2.0（2026 年 5 月）和 DeerFlow 2.0（2026 年初）都已在往 runtime 化走。
+      Vercel 的差异在于：<strong>第一次由主流应用平台把这些能力产品化并默认化</strong>。
+    </div>
+  </section>
+
+  <!-- SECTION: Vercel -->
+  <section class="section" id="vercel">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2>Vercel eve / Agent Stack</h2>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-card blue" style="grid-column: 1 / -1;">
+        <div class="compare-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div class="compare-card-label" style="color:var(--blue)">Vercel · Platform Runtime</div>
+            <div class="compare-card-name">eve / Agent Stack</div>
+            <div class="compare-card-type">TypeScript · Serverless · SaaS-first</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+            <span class="tag blue">durable execution</span>
+            <span class="tag blue">microVM sandbox</span>
+            <span class="tag blue">scoped credentials</span>
+            <span class="tag orange">eve: public beta</span>
+            <span class="tag orange">Connect: beta</span>
+          </div>
+        </div>
+        <div class="compare-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+          <div style="padding-right:20px;border-right:1px solid var(--border);">
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px;">核心能力</div>
+            <div class="feature-row"><span class="feature-icon yes-blue">●</span>WorkflowAgent durable agent loop，跨审批等待续跑</div>
+            <div class="feature-row"><span class="feature-icon yes-blue">●</span>Firecracker microVM 隔离，默认快照持久化</div>
+            <div class="feature-row"><span class="feature-icon yes-blue">●</span>tool approvals：自动 / 人工 / 策略型，HMAC 签名</div>
+            <div class="feature-row"><span class="feature-icon yes-blue">●</span>Connect：短期 scoped credential，动作归因到用户</div>
+            <div class="feature-row"><span class="feature-icon yes-blue">●</span>AI SDK 7 统一模型入口 + spend monitoring</div>
+            <div class="feature-row"><span class="feature-icon yes-blue">●</span>evals 内置框架，按部署 / 定时触发</div>
+            <div class="feature-row"><span class="feature-icon yes-blue">●</span>eve 抽象：目录即 agent，文件系统约定</div>
+          </div>
+          <div style="padding-left:20px;">
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px;">边界与风险</div>
+            <div class="feature-row"><span class="feature-icon no">✗</span>强平台锁定，推理流量必须过 Vercel 云</div>
+            <div class="feature-row"><span class="feature-icon no">✗</span>私有化 / 内网部署：BYOC on AWS 仍 private beta</div>
+            <div class="feature-row"><span class="feature-icon no">✗</span>Enterprise Managed Users 仍 private beta</div>
+            <div class="feature-row"><span class="feature-icon no">✗</span>非 TS / Next.js 栈融合成本高</div>
+            <div class="feature-row"><span class="feature-icon partial">△</span>eve 本身 public beta，生产稳定性需验证</div>
+            <div class="feature-row"><span class="feature-icon partial">△</span>自定义 GPU 管线 / 本地模型：不适用</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      eve 的核心抽象极简：<code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">agent/</code>
+      目录下的 <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">instructions.md</code>、
+      <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">tools/</code>、
+      <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">skills/</code>、
+      <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">subagents/</code>
+      组成 agent 形状。但真正把它变成生产系统的，是下面已经 wired 好的 Workflows、Sandbox、AI Gateway、Connect 和 Observability。
+      <strong>框架是入口，运行时是护城河</strong>——Vercel 自己在发布文里也明确说，eve 是过去一年在内部构建数百个 agents 后总结出的「shape」。
+    </p>
+  </section>
+
+  <!-- SECTION: AgentScope -->
+  <section class="section" id="agentscope">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2>AgentScope 2.0</h2>
+    </div>
+
+    <div class="compare-card green" style="margin:20px 0;">
+      <div class="compare-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div class="compare-card-label" style="color:var(--green)">Alibaba DAMO · Framework-Runtime Hybrid</div>
+          <div class="compare-card-name">AgentScope 2.0</div>
+          <div class="compare-card-type">Python · 自托管 · 可组合 runtime</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+          <span class="tag green">self-hosted</span>
+          <span class="tag green">multi-tenant</span>
+          <span class="tag green">OTel tracing</span>
+          <span class="tag green">2026.05 发布</span>
+        </div>
+      </div>
+      <div class="compare-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+        <div style="padding-right:20px;border-right:1px solid var(--border);">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px;">2.0 关键重构</div>
+          <div class="feature-row"><span class="feature-icon yes-green">●</span>AgentScope Runtime 已并入主框架（不再独立仓库）</div>
+          <div class="feature-row"><span class="feature-icon yes-green">●</span>permission system 深度重构：工具权限 + ask/default/explore 模式</div>
+          <div class="feature-row"><span class="feature-icon yes-green">●</span>workspace + sandbox：local / Docker / E2B 三层可选</div>
+          <div class="feature-row"><span class="feature-icon yes-green">●</span>FastAPI agent service + 多租户多会话服务架构</div>
+          <div class="feature-row"><span class="feature-icon yes-green">●</span>OpenTelemetry tracing + AgentScope Studio 可视化</div>
+          <div class="feature-row"><span class="feature-icon yes-green">●</span>内置 evaluation + OpenJudge 集成</div>
+          <div class="feature-row"><span class="feature-icon yes-green">●</span>middleware chain + message bus 全层重构</div>
+        </div>
+        <div style="padding-left:20px;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px;">边界与代价</div>
+          <div class="feature-row"><span class="feature-icon no">✗</span>控制面需自组装（无开箱即用的 dashboard）</div>
+          <div class="feature-row"><span class="feature-icon no">✗</span>交付层（Web UI、IM channel）需自建</div>
+          <div class="feature-row"><span class="feature-icon no">✗</span>短期 scoped credential 需自实现</div>
+          <div class="feature-row"><span class="feature-icon partial">△</span>durability 是框架内部语义，非平台 SLA</div>
+          <div class="feature-row"><span class="feature-icon partial">△</span>相比 Vercel，需要更多 infra 组装工作</div>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      AgentScope 的价值不在"更多 feature"，而在于<strong>可塑性</strong>：
+      你可以自己决定 storage backend、message bus、IAM、tenant 隔离策略、observability 接入点。
+      这是把 runtime 视为工程资产而非外购服务的底层逻辑。对想做长期平台化演进、且有 Python 后台体系的企业，
+      AgentScope 通常是最自然的选择。
+    </p>
+
+    <div class="callout green">
+      <strong>架构关键信号：</strong>AgentScope Runtime 从独立仓库合并进主框架，说明团队已经明确地把 runtime 能力
+      定位为框架的核心层，而不是可选附件。这和 Vercel 把 Workflows/Sandbox 定位为平台核心是同向的判断，只是实现路径不同。
+    </div>
+  </section>
+
+  <!-- SECTION: DeerFlow -->
+  <section class="section" id="deerflow">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2>DeerFlow 2.0</h2>
+    </div>
+
+    <div class="compare-card amber" style="margin:20px 0;">
+      <div class="compare-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div class="compare-card-label" style="color:var(--amber)">Bytedance · Super-agent Harness</div>
+          <div class="compare-card-name">DeerFlow 2.0</div>
+          <div class="compare-card-type">Python + Next.js · LangGraph 底层 · 长任务导向</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+          <span class="tag amber">deep research</span>
+          <span class="tag amber">coding agent</span>
+          <span class="tag amber">full-stack UI</span>
+          <span class="tag orange">eval RFC 阶段</span>
+        </div>
+      </div>
+      <div class="compare-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+        <div style="padding-right:20px;border-right:1px solid var(--border);">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px;">强项能力</div>
+          <div class="feature-row"><span class="feature-icon yes-amber">●</span>subagents + persistent memory + skills 深度集成</div>
+          <div class="feature-row"><span class="feature-icon yes-amber">●</span>sandbox + guardrails + clarification 三层安全</div>
+          <div class="feature-row"><span class="feature-icon yes-amber">●</span>Gateway API 模型层解耦</div>
+          <div class="feature-row"><span class="feature-icon yes-amber">●</span>artifacts / threads / runs + per-thread isolation</div>
+          <div class="feature-row"><span class="feature-icon yes-amber">●</span>内置 Next.js 前端 + IM channels 接入</div>
+          <div class="feature-row"><span class="feature-icon yes-amber">●</span>LangSmith / Langfuse tracing</div>
+          <div class="feature-row"><span class="feature-icon yes-amber">●</span>深研 / coding / 报告 / 幻灯片 / 网页生成全链路</div>
+        </div>
+        <div style="padding-left:20px;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px;">企业治理硬缺口</div>
+          <div class="feature-row"><span class="feature-icon no">✗</span>auth / policy / audit trail 全部需自建</div>
+          <div class="feature-row"><span class="feature-icon no">✗</span>官方建议：默认本地可信网络部署</div>
+          <div class="feature-row"><span class="feature-icon no">✗</span>暴露到非可信环境需自建 IP allowlist + 认证网关</div>
+          <div class="feature-row"><span class="feature-icon no">✗</span>eval harness 仍处 RFC 阶段（2026.06）</div>
+          <div class="feature-row"><span class="feature-icon partial">△</span>官方明确：sandboxing 不能替代语义授权</div>
+          <div class="feature-row"><span class="feature-icon partial">△</span>human approval 不适合所有 autonomous workflow</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout amber">
+      <strong>正确的使用姿势：</strong>不要把 DeerFlow 当「开箱即用的治理平台」，
+      而应当作「高能力 harness」——外面再补企业认证、策略授权、审计、网络隔离和评估体系。
+      官方安全文档已经把这个结论说得很直白了。
+    </div>
+  </section>
+
+  <!-- SECTION: 六轴对比矩阵 -->
+  <section class="section" id="matrix">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2>六轴对比矩阵</h2>
+    </div>
+
+    <p>真正决定选型的，不是「哪个 demo 更惊艳」，而是这六个 runtime 维度。评分基于 2026 年 6 月公开文档，beta 能力以当前 GA 状态计分。</p>
+
+    <!-- RADAR CHART -->
+    <div class="radar-section">
+      <div class="radar-section-title">六维雷达图 — 可切换单框架或全量对比</div>
+      <div class="radar-toggle">
+        <button class="rtoggle active-blue" onclick="toggleRadar('vercel', this)">Vercel eve</button>
+        <button class="rtoggle active-green" onclick="toggleRadar('agentscope', this)">AgentScope 2.0</button>
+        <button class="rtoggle active-amber" onclick="toggleRadar('deerflow', this)">DeerFlow 2.0</button>
+        <button class="rtoggle" id="all-btn" onclick="toggleAll(this)">全量对比</button>
+      </div>
+      <div class="radar-canvas-wrap">
+        <canvas id="radarChart" role="img" aria-label="六轴雷达图对比三个 agent runtime 框架"></canvas>
+      </div>
+    </div>
+
+    <!-- MATRIX TABLE -->
+    <table class="matrix-table">
+      <thead>
+        <tr>
+          <th>评估维度</th>
+          <th>Vercel eve</th>
+          <th>AgentScope 2.0</th>
+          <th>DeerFlow 2.0</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <strong>① Durable execution</strong>
+            <span class="dim">崩溃恢复 / deterministic replay</span>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div>
+            </div>
+            <div class="score-note">平台 SLA 级承诺，WorkflowAgent 内建</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot empty-green"></div><div class="dot empty-green"></div>
+            </div>
+            <div class="score-note">state/session 持久化，框架内部语义</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot empty-amber"></div><div class="dot empty-amber"></div>
+            </div>
+            <div class="score-note">LangGraph threads/runs，依赖正确配置</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>② Sandbox + approvals</strong>
+            <span class="dim">隔离执行 / HITL / 短期凭证</span>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div>
+            </div>
+            <div class="score-note">Firecracker microVM + Connect scoped cred</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot empty-green"></div>
+            </div>
+            <div class="score-note">workspace + permission engine 重构</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot empty-amber"></div><div class="dot empty-amber"></div>
+            </div>
+            <div class="score-note">sandbox+guardrails，语义授权需自建</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>③ Observability + evals</strong>
+            <span class="dim">traces / spend / 评估流水线</span>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div>
+            </div>
+            <div class="score-note">Dashboard 原生 + Drains + eval 调度</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot empty-green"></div>
+            </div>
+            <div class="score-note">OTel + Studio + OpenJudge eval</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot empty-amber"></div><div class="dot empty-amber"></div>
+            </div>
+            <div class="score-note">LangSmith/Langfuse，eval 仍 RFC 阶段</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>④ Identity + audit trail</strong>
+            <span class="dim">credential 生命周期 / 行为归因</span>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot empty-blue"></div>
+            </div>
+            <div class="score-note">短期 scoped credential，Passport beta</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot empty-green"></div>
+            </div>
+            <div class="score-note">可自控 IAM，需自建审计链路</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot empty-amber"></div><div class="dot empty-amber"></div><div class="dot empty-amber"></div>
+            </div>
+            <div class="score-note">需自建认证网关与完整审计体系</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>⑤ Deployment boundary</strong>
+            <span class="dim">自托管 / 私有网络 / 合规</span>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot empty-blue"></div><div class="dot empty-blue"></div><div class="dot empty-blue"></div>
+            </div>
+            <div class="score-note">SaaS 优先，BYOC 仍 private beta</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div>
+            </div>
+            <div class="score-note">完全自托管，私有 GPU，自控网络</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot empty-amber"></div>
+            </div>
+            <div class="score-note">自托管，需手动配网络隔离</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>⑥ Out-of-box task coverage</strong>
+            <span class="dim">零到 business agent 的距离</span>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div><div class="dot filled-blue"></div>
+            </div>
+            <div class="score-note">最短路径，TS/Next.js 栈直接发布</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot filled-green"></div><div class="dot empty-green"></div><div class="dot empty-green"></div>
+            </div>
+            <div class="score-note">需自组控制面与交付层</div>
+          </td>
+          <td>
+            <div class="score-dots">
+              <div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot filled-amber"></div><div class="dot empty-amber"></div>
+            </div>
+            <div class="score-note">深研 / coding 任务开箱即用</div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION: 选型决策树 -->
+  <section class="section" id="selection">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2>选型决策树</h2>
+    </div>
+
+    <p>以下按约束优先级给出判断，不是综合评分，而是「哪种约束决定选哪条路」。</p>
+
+    <div class="select-grid">
+      <div class="select-card blue">
+        <div class="select-card-top">
+          <div class="select-card-when">当你的优先级是</div>
+          <div class="select-card-name">选 Vercel eve</div>
+        </div>
+        <div class="select-card-body">
+          <div class="select-item"><span class="select-check yes">✓</span>TypeScript / Next.js 栈</div>
+          <div class="select-item"><span class="select-check yes">✓</span>尽快把 agent 发到生产</div>
+          <div class="select-item"><span class="select-check yes">✓</span>web agent / 内部工具 agent</div>
+          <div class="select-item"><span class="select-check yes">✓</span>Slack / GitHub / cron agent</div>
+          <div class="select-item"><span class="select-check yes">✓</span>不想自建 durable orchestration</div>
+          <div class="select-item"><span class="select-check yes">✓</span>不想自建 sandbox + approvals</div>
+          <div class="select-item" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+            <span class="select-check no">✗</span>私有化合规部署
+          </div>
+          <div class="select-item"><span class="select-check no">✗</span>自定义 GPU / 本地模型管线</div>
+          <div class="select-item"><span class="select-check no">✗</span>企业内网 / air-gapped</div>
+        </div>
+      </div>
+
+      <div class="select-card green">
+        <div class="select-card-top">
+          <div class="select-card-when">当你的优先级是</div>
+          <div class="select-card-name">选 AgentScope 2.0</div>
+        </div>
+        <div class="select-card-body">
+          <div class="select-item"><span class="select-check yes">✓</span>自托管 + 可移植</div>
+          <div class="select-item"><span class="select-check yes">✓</span>多租户 / 细粒度权限</div>
+          <div class="select-item"><span class="select-check yes">✓</span>开放观测后端（自接 OTel）</div>
+          <div class="select-item"><span class="select-check yes">✓</span>Python / Java 后台体系</div>
+          <div class="select-item"><span class="select-check yes">✓</span>长期平台化演进</div>
+          <div class="select-item"><span class="select-check yes">✓</span>私有 GPU 管线 / 内网部署</div>
+          <div class="select-item" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+            <span class="select-check no">✗</span>需要开箱即用的完整 UI
+          </div>
+          <div class="select-item"><span class="select-check no">✗</span>团队规模小 / infra 人力有限</div>
+        </div>
+      </div>
+
+      <div class="select-card amber">
+        <div class="select-card-top">
+          <div class="select-card-when">当你的优先级是</div>
+          <div class="select-card-name">选 DeerFlow 2.0</div>
+        </div>
+        <div class="select-card-body">
+          <div class="select-item"><span class="select-check yes">✓</span>deep research / coding 任务</div>
+          <div class="select-item"><span class="select-check yes">✓</span>长任务 / 产物导向</div>
+          <div class="select-item"><span class="select-check yes">✓</span>需要内置全栈 UI</div>
+          <div class="select-item"><span class="select-check yes">✓</span>IM channel 接入（飞书/Slack）</div>
+          <div class="select-item"><span class="select-check yes">✓</span>快速自托管验证 / POC</div>
+          <div class="select-item" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+            <span class="select-check no">✗</span>需要开箱即用的治理平台
+          </div>
+          <div class="select-item"><span class="select-check no">✗</span>强合规审计要求</div>
+          <div class="select-item"><span class="select-check no">✗</span>通用企业控制面</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>关于私有化 + 本地优先场景：</strong>如果约束是私有化部署、本地优先、企业内网、复杂 GPU 工作流，
+      不默认推荐 Vercel-first。即便 Vercel 已开始推进 BYOC on AWS，2026 年 6 月仍是 private beta。
+      更稳妥的方向是 AgentScope（可自托管 runtime）+ DeerFlow（business harness），再加自建 control plane。
+    </div>
+  </section>
+
+  <!-- SECTION: 架构对位参考 -->
+  <section class="section" id="arch">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2>架构对位参考</h2>
+    </div>
+
+    <p>以下将三个框架的核心组件与典型企业自建 control plane（如 acp-cpd / XRuntime 架构）进行对位，帮助判断哪些层可以借用、哪些需要自建。</p>
+
+    <table class="arch-table">
+      <thead>
+        <tr>
+          <th>自建控制面概念</th>
+          <th>Vercel 对位组件</th>
+          <th>AgentScope 对位组件</th>
+          <th>DeerFlow 对位组件</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>模型统一入口 / Gateway</td>
+          <td><span class="tag blue">AI Gateway</span> 预算+fallback</td>
+          <td><span class="tag green">model_manager</span> 多模型切换</td>
+          <td><span class="tag amber">Gateway API</span> 统一接口</td>
+        </tr>
+        <tr>
+          <td>Pipeline / 任务编排引擎</td>
+          <td><span class="tag blue">Workflows</span> durable execution</td>
+          <td><span class="tag green">Pipeline + DAG</span> 框架内置</td>
+          <td><span class="tag amber">LangGraph</span> graph-based</td>
+        </tr>
+        <tr>
+          <td>Multi-agent / Council 模式</td>
+          <td><span class="tag blue">subagents</span> + WorkflowAgent</td>
+          <td><span class="tag green">multi-agent service</span> 多租户</td>
+          <td><span class="tag amber">subagents</span> + skills</td>
+        </tr>
+        <tr>
+          <td>Skill evolution / 技能层</td>
+          <td><span class="tag blue">skills/</span> 目录约定</td>
+          <td><span class="tag green">tool + middleware</span> 可扩展</td>
+          <td><span class="tag amber">skills</span> 内置管理</td>
+        </tr>
+        <tr>
+          <td>Verification / 审批层</td>
+          <td><span class="tag blue">tool approvals</span> HMAC 签名</td>
+          <td><span class="tag green">permission engine</span> 多模式</td>
+          <td><span class="tag amber">guardrails</span> + clarification</td>
+        </tr>
+        <tr>
+          <td>Credential / 短期凭证</td>
+          <td><span class="tag blue">Connect</span> scoped cred <span class="beta-badge">beta</span></td>
+          <td><span class="tag muted">需自实现</span></td>
+          <td><span class="tag muted">需自实现</span></td>
+        </tr>
+        <tr>
+          <td>Observability / 追踪</td>
+          <td><span class="tag blue">Dashboard + Drains</span> 原生</td>
+          <td><span class="tag green">OTel + Studio</span> 标准协议</td>
+          <td><span class="tag amber">LangSmith / Langfuse</span> 插件</td>
+        </tr>
+        <tr>
+          <td>Evaluation / 评估流水线</td>
+          <td><span class="tag blue">evals</span> 部署+定时触发</td>
+          <td><span class="tag green">OpenJudge</span> 内置集成</td>
+          <td><span class="tag orange">eval harness</span> RFC 阶段</td>
+        </tr>
+        <tr>
+          <td>Sandbox / 隔离执行</td>
+          <td><span class="tag blue">Firecracker microVM</span> 快照</td>
+          <td><span class="tag green">Docker / E2B / local</span> 三层</td>
+          <td><span class="tag amber">sandbox</span> 进程级隔离</td>
+        </tr>
+        <tr>
+          <td>Audit trail / 行为归因</td>
+          <td><span class="tag blue">Connect</span> 用户级归因</td>
+          <td><span class="tag muted">需自建审计链路</span></td>
+          <td><span class="tag muted">需自建完整审计</span></td>
+        </tr>
+        <tr>
+          <td>Multi-tenant IAM</td>
+          <td><span class="tag orange">EMU</span> private beta</td>
+          <td><span class="tag green">permission system</span> 完全自控</td>
+          <td><span class="tag muted">需自建认证网关</span></td>
+        </tr>
+        <tr>
+          <td>部署边界</td>
+          <td><span class="tag muted">SaaS</span> BYOC 待 GA</td>
+          <td><span class="tag green">完全自托管</span> 私有 GPU</td>
+          <td><span class="tag amber">自托管</span> 需手动配网络</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION: 最终结论 -->
+  <section class="section" id="conclusion">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <h2>最终结论</h2>
+    </div>
+
+    <div class="conclusion-box">
+      <h3>核心命题</h3>
+      <p>
+        把这三者放在一起看，最关键的结论不是「谁更强」，而是
+        <strong>谁在为你承担 production runtime 的默认成本</strong>。
+        这是选型的真正分水岭，而不是 benchmark 分数或 feature list 长度。
+      </p>
+      <p>
+        Vercel 这次真正证明的是：<strong>agent framework 的下一站确实不是再多一个 SDK，而是生产级运行时</strong>。
+        它以平台信号的方式将 durable execution、sandbox、approvals、connect、observability 打包为默认件，
+        这对整个行业的产品定义都有影响。
+      </p>
+
+      <h3 style="margin-top:20px;">三条选型路径</h3>
+      <p>
+        <strong>想要最快落地、最少自建、最强平台默认件：</strong>选 Vercel。
+        你买到的不是「更智能的模型」，而是更短的生产路径——
+        durable orchestration、sandbox、approvals、connect、spend monitoring 这些底层件你一个都不用自组。
+        代价是平台边界强，且部分企业功能仍处 beta/private beta 阶段。
+      </p>
+      <p>
+        <strong>想要自控边界、长期平台化、可移植和可自托管：</strong>选 AgentScope。
+        它现在最像「企业自己掌控 runtime 边界」的底座：permission、workspace、service、middleware、tracing、
+        evaluation 都在持续补齐，且 runtime 能力已从独立仓库合并进主框架。
+        对 Python/Java 后台体系、私有化部署、重合规企业，AgentScope 的可塑性通常高于 Vercel。
+      </p>
+      <p>
+        <strong>面向 deep research / coding / 内容产物生成，需要「一个已经很能打的 super-agent 系统」：</strong>选 DeerFlow。
+        但在企业环境里，不要把 DeerFlow 当「开箱即用的治理平台」，而应当作「高能力 harness」——
+        外面再补企业认证、策略授权、审计、网络隔离和评估体系。
+      </p>
+
+      <h3 style="margin-top:20px;">一句话重新定义目标</h3>
+      <p style="font-style:italic;border-left:3px solid var(--orange);padding-left:14px;color:var(--text-primary);">
+        未来真正有价值的 Agent 平台，不只是「可恢复、可审计、可审批、可验收、可复用的工作台」，
+        而是把这些能力做成默认 runtime，并且能与你的部署边界、身份体系、审计体系和成本治理体系对齐的工作台。
+      </p>
+    </div>
+
+    <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);">
+        基于公开文档与架构材料综合分析 · 2026 年 6 月基准 · beta 能力以当前 GA 状态计分
+      </div>
+      <div style="display:flex;gap:12px;">
+        <span class="tag blue">Vercel eve</span>
+        <span class="tag green">AgentScope 2.0</span>
+        <span class="tag amber">DeerFlow 2.0</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+// ── RADAR CHART ──
+const labels = ['Durable\nExecution', 'Sandbox &\nApprovals', 'Observability\n& Evals', 'Identity &\nAudit', 'Deployment\nBoundary', 'Out-of-box\nCoverage'];
+const data = {
+  vercel:      [5, 5, 5, 4, 2, 5],
+  agentscope:  [3, 4, 4, 4, 5, 3],
+  deerflow:    [3, 3, 3, 2, 4, 4],
+};
+
+const ctx = document.getElementById('radarChart').getContext('2d');
+const radarChart = new Chart(ctx, {
+  type: 'radar',
+  data: {
+    labels: labels,
+    datasets: [
+      {
+        label: 'Vercel eve',
+        data: data.vercel,
+        borderColor: '#4a8fff',
+        backgroundColor: 'rgba(74,143,255,0.15)',
+        borderWidth: 2,
+        pointBackgroundColor: '#4a8fff',
+        pointRadius: 4,
+        hidden: false,
+      },
+      {
+        label: 'AgentScope 2.0',
+        data: data.agentscope,
+        borderColor: '#1baf7a',
+        backgroundColor: 'rgba(27,175,122,0.12)',
+        borderWidth: 2,
+        pointBackgroundColor: '#1baf7a',
+        pointRadius: 4,
+        hidden: false,
+      },
+      {
+        label: 'DeerFlow 2.0',
+        data: data.deerflow,
+        borderColor: '#eda100',
+        backgroundColor: 'rgba(237,161,0,0.1)',
+        borderWidth: 2,
+        pointBackgroundColor: '#eda100',
+        pointRadius: 4,
+        hidden: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      r: {
+        min: 0,
+        max: 5,
+        ticks: {
+          stepSize: 1,
+          display: false,
+        },
+        grid: { color: 'rgba(255,255,255,0.08)' },
+        angleLines: { color: 'rgba(255,255,255,0.06)' },
+        pointLabels: {
+          font: { family: 'Inter', size: 11 },
+          color: '#8a90a0',
+        }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1a2030',
+        borderColor: 'rgba(255,255,255,0.12)',
+        borderWidth: 1,
+        titleColor: '#e8eaf0',
+        bodyColor: '#8a90a0',
+      }
+    }
+  }
+});
+
+let activeToggles = { vercel: true, agentscope: true, deerflow: true };
+
+function toggleRadar(key, btn) {
+  activeToggles[key] = !activeToggles[key];
+  const idx = { vercel: 0, agentscope: 1, deerflow: 2 }[key];
+  radarChart.data.datasets[idx].hidden = !activeToggles[key];
+  radarChart.update();
+
+  const classMap = { vercel: 'active-blue', agentscope: 'active-green', deerflow: 'active-amber' };
+  if (activeToggles[key]) {
+    btn.classList.add(classMap[key]);
+  } else {
+    btn.classList.remove(classMap[key]);
+  }
+  updateAllBtn();
+}
+
+function toggleAll(btn) {
+  const allOn = activeToggles.vercel && activeToggles.agentscope && activeToggles.deerflow;
+  const newState = !allOn;
+  ['vercel', 'agentscope', 'deerflow'].forEach((k, i) => {
+    activeToggles[k] = newState;
+    radarChart.data.datasets[i].hidden = !newState;
+  });
+  radarChart.update();
+
+  document.querySelectorAll('.rtoggle:not(#all-btn)').forEach((b, i) => {
+    const keys = ['vercel', 'agentscope', 'deerflow'];
+    const classMap = ['active-blue', 'active-green', 'active-amber'];
+    if (newState) b.classList.add(classMap[i]);
+    else b.classList.remove(classMap[i]);
+  });
+  updateAllBtn();
+}
+
+function updateAllBtn() {
+  const allBtn = document.getElementById('all-btn');
+  const allOn = activeToggles.vercel && activeToggles.agentscope && activeToggles.deerflow;
+  allBtn.textContent = allOn ? '全部隐藏' : '全量对比';
+}
+
+// ── ACTIVE NAV HIGHLIGHT ──
+const sections = document.querySelectorAll('section[id], div[id]');
+const navLinks = document.querySelectorAll('.nav a');
+
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(l => l.classList.remove('active'));
+      const link = document.querySelector(`.nav a[href="#${e.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+
+sections.forEach(s => obs.observe(s));
+</script>
+
+</body>
+</html>

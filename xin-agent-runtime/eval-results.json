@@ -1,0 +1,17 @@
+[
+  {
+    "eval_id": "run._run_eval",
+    "description": "run test",
+    "status": "passed",
+    "assertions": [
+      {
+        "name": "ok",
+        "passed": true,
+        "message": "",
+        "evidence": {}
+      }
+    ],
+    "trace": {},
+    "duration_ms": 0
+  }
+]

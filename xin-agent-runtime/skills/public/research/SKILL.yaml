@@ -1,0 +1,26 @@
+name: research
+description: >
+  Conduct multi-source web research with citations.
+  Use when user asks for research, analysis, or fact-checking.
+version: "1.0.0"
+allowed_tools: [web_search, browse, read_file, write_file]
+permissions: [network, filesystem:read]
+instructions: |
+  # Research Skill
+
+  ## When to Use
+  - User requests research or analysis
+  - Need factual information with citations
+  - Multi-source comparison required
+
+  ## Workflow
+  1. Break down the research question into sub-queries
+  2. Search multiple sources for each sub-query
+  3. Cross-reference findings from different sources
+  4. Generate a summary with proper citations
+
+  ## Output Format
+  - Start with a brief executive summary
+  - List key findings with source citations
+  - Note any conflicting information
+  - Conclude with confidence assessment

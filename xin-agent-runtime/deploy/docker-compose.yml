@@ -1,0 +1,141 @@
+version: "3.9"
+
+networks:
+  xruntime-internal:
+    driver: bridge
+  xruntime-backend:
+    driver: bridge
+    internal: true
+
+volumes:
+  redis-data:
+  xruntime-workspaces:
+  xruntime-knowledge:
+  xruntime-logs:
+
+services:
+  xruntime:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: xruntime:latest
+    container_name: xruntime
+    ports:
+      - "${XRUNTIME_PORT:-8900}:8900"
+    environment:
+      - XRUNTIME_PRODUCTION=${XRUNTIME_PRODUCTION:-0}
+      - XRUNTIME_LOG_LEVEL=${XRUNTIME_LOG_LEVEL:-INFO}
+      - XRUNTIME_STORAGE_TYPE=redis
+      - XRUNTIME_STORAGE_REDIS_HOST=redis
+      - XRUNTIME_STORAGE_REDIS_PORT=6379
+      - XRUNTIME_STORAGE_REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - XRUNTIME_STORAGE_REDIS_DB=0
+      - XRUNTIME_MESSAGE_BUS_TYPE=redis
+      - XRUNTIME_MESSAGE_BUS_REDIS_HOST=redis
+      - XRUNTIME_MESSAGE_BUS_REDIS_PORT=6379
+      - XRUNTIME_MESSAGE_BUS_REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - XRUNTIME_WORKSPACE_BACKEND=${XRUNTIME_WORKSPACE_BACKEND:-local}
+      - XRUNTIME_WORKSPACE_DIR=/var/lib/xruntime/workspaces
+      - XRUNTIME_KNOWLEDGE_ENABLED=${XRUNTIME_KNOWLEDGE_ENABLED:-0}
+      - XRUNTIME_KNOWLEDGE_DIR=/var/lib/xruntime/knowledge
+      - XRUNTIME_SERVER_AUTH_ENABLED=${XRUNTIME_AUTH_ENABLED:-false}
+      - XRUNTIME_API_KEYS=${XRUNTIME_API_KEYS:-}
+      - XRUNTIME_JWT_SECRET=${XRUNTIME_JWT_SECRET:-}
+      - XRUNTIME_MODEL_PROVIDER=${XRUNTIME_MODEL_PROVIDER:-}
+      - XRUNTIME_MODEL_API_KEY=${XRUNTIME_MODEL_API_KEY:-}
+      - XRUNTIME_MODEL_NAME=${XRUNTIME_MODEL_NAME:-}
+      - XRUNTIME_MODEL_BASE_URL=${XRUNTIME_MODEL_BASE_URL:-}
+      - XRUNTIME_DEFAULT_MODEL=${XRUNTIME_DEFAULT_MODEL:-claude-3-sonnet}
+    volumes:
+      - xruntime-workspaces:/var/lib/xruntime/workspaces
+      - xruntime-knowledge:/var/lib/xruntime/knowledge
+      - xruntime-logs:/var/log/xruntime
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - xruntime-internal
+      - xruntime-backend
+    # ── 安全加固 (P0-B) ────────────────────────────────────────
+    # 丢弃所有 Linux capabilities，防止容器内提权
+    cap_drop:
+      - ALL
+    # 禁止通过 setuid/setgid 获取新权限
+    security_opt:
+      - no-new-privileges:true
+    # 资源限制：防止容器耗尽主机资源
+    mem_limit: 1g
+    memswap_limit: 1g
+    mem_reservation: 256m
+    cpus: 2.0
+    pids_limit: 512
+    # 读写限制：根文件系统只读，仅必要目录可写
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+      - /run:size=32m
+    # 文件描述符 + 进程数 ulimit
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 4096
+      nproc:
+        soft: 256
+        hard: 512
+    # 重启策略
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8900/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  redis:
+    image: redis:7-alpine
+    container_name: xruntime-redis
+    volumes:
+      - redis-data:/data
+    networks:
+      - xruntime-backend
+    # ── 安全加固 (P0-B) ────────────────────────────────────────
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+      - /run:size=16m
+    ulimits:
+      nofile:
+        soft: 512
+        hard: 1024
+      nproc:
+        soft: 64
+        hard: 128
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      --rename-command FLUSHALL ""
+      --rename-command FLUSHDB ""
+      --rename-command CONFIG ""
+      --maxmemory 200mb
+      --maxmemory-policy allkeys-lru

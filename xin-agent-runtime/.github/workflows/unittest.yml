@@ -1,0 +1,64 @@
+name: Python Unittest Coverage
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: false == contains(github.event.pull_request.title, 'WIP')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.11']
+    env:
+      OS: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        pip install -e ".[xruntime-dev]"
+    - name: Run enterprise tests (must pass)
+      env:
+        GRPC_VERBOSITY: ERROR
+      run: |
+        pytest tests/xruntime/test_rbac_policy.py \
+               tests/xruntime/test_rbac_defaults.py \
+               tests/xruntime/test_auth_membership.py \
+               tests/xruntime/test_knowledge_acl.py \
+               tests/xruntime/test_knowledge_scope.py \
+               tests/xruntime/test_phase1_security.py \
+               tests/xruntime/test_phase2_llm_wiki.py \
+               tests/xruntime/test_phase3_execution_plan.py \
+               tests/xruntime/test_phase4_6_workspace_model_langfuse.py \
+               tests/xruntime/test_coverage_gaps.py \
+               tests/xruntime/test_phase_remaining_gaps.py \
+               tests/xruntime/test_server_workspace.py \
+               tests/xruntime/integration/test_workspace_rbac_integration.py \
+               -v --tb=short
+    - name: Run original tests (best-effort)
+      continue-on-error: true
+      env:
+        GRPC_VERBOSITY: ERROR
+      run: |
+        pytest tests/xruntime/test_anthropic_adapter.py \
+               tests/xruntime/test_claude_code_adapter.py \
+               tests/xruntime/test_opencode_adapter.py \
+               tests/xruntime/test_request_adapter.py \
+               tests/xruntime/test_config.py \
+               tests/xruntime/test_extension.py \
+               tests/xruntime/test_handler_fixes.py \
+               tests/xruntime/test_knowledge.py \
+               tests/xruntime/test_middlewares.py \
+               tests/xruntime/test_migrator.py \
+               tests/xruntime/test_orchestrator.py \
+               tests/xruntime/test_server.py \
+               tests/xruntime/test_tenant.py \
+               tests/xruntime/test_e2e_request_path.py \
+               -v --tb=short

@@ -1,0 +1,386 @@
+# XRuntime Production Stack - Docker Swarm
+# =============================================
+#
+# 使用说明:
+#   1. 确保已初始化 Swarm: docker swarm init
+#   2. 创建配置环境变量文件
+#   3. 部署: docker stack deploy -c xruntime-swarm-stack.yml xruntime
+#
+# 监控:
+#   - 查看服务: docker stack services xruntime
+#   - 查看日志: docker service logs xruntime_gateway
+#   - 扩容: docker service scale xruntime_gateway=3
+#
+version: "3.8"
+
+services:
+  # ============================================
+  # Redis Cluster - 存储 + 消息总线
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    hostname: "xruntime-redis-{{.Task.Slot}}"
+    command: >
+      redis-server
+      --requirepass ${XRUNTIME_REDIS_PASSWORD:?XRUNTIME_REDIS_PASSWORD required}
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --save 60 1
+      --loglevel notice
+    volumes:
+      - redis_data:/data
+    networks:
+      - xruntime_internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      placement:
+        constraints:
+          - node.labels.xruntime.redis == true
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${XRUNTIME_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  # ============================================
+  # XRuntime Gateway - 协议网关 + 中间件链
+  # ============================================
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.gateway
+    image: xruntime/gateway:latest
+    hostname: "xruntime-gateway-{{.Task.Slot}}"
+    environment:
+      # 生产模式
+      XRUNTIME_PRODUCTION: "1"
+      XRUNTIME_LOG_LEVEL: "INFO"
+
+      # Redis 连接
+      XRUNTIME_STORAGE_REDIS_HOST: "redis"
+      XRUNTIME_STORAGE_REDIS_PORT: "6379"
+      XRUNTIME_STORAGE_REDIS_PASSWORD: ${XRUNTIME_REDIS_PASSWORD:?}
+      XRUNTIME_MESSAGE_BUS_REDIS_HOST: "redis"
+      XRUNTIME_MESSAGE_BUS_REDIS_PORT: "6379"
+
+      # Workspace 配置
+      XRUNTIME_WORKSPACE_BACKEND: "docker"
+      XRUNTIME_WORKSPACE_DIR: "/var/lib/xruntime/workspaces"
+      XRUNTIME_ALLOW_LOCAL_WORKSPACE: "0"
+
+      # 认证配置
+      XRUNTIME_AUTH_ENABLED: "1"
+      XRUNTIME_API_KEYS: ${XRUNTIME_API_KEYS:?}
+      XRUNTIME_JWT_SECRET: ${XRUNTIME_JWT_SECRET:?}
+
+      # 限流配置 (requests / window_seconds)
+      XRUNTIME_RATE_LIMIT: "1000/60"
+
+      # Quota 配置
+      XRUNTIME_QUOTA_MAX_BUDGET_USD: ${XRUNTIME_MAX_BUDGET:-100}
+      XRUNTIME_QUOTA_MAX_TOKENS_PER_DAY: ${XRUNTIME_MAX_TOKENS:-1000000}
+
+      # 模型配置
+      XRUNTIME_DEFAULT_MODEL: "claude-3-sonnet"
+      XRUNTIME_FALLBACK_MODEL: "claude-3-haiku"
+
+      # Langfuse 追踪
+      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-0}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+
+      # OpenTelemetry
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_ENDPOINT:-}
+      OTEL_SERVICE_NAME: "xruntime-gateway"
+
+      # Knowledge 配置
+      XRUNTIME_KNOWLEDGE_ENABLED: "1"
+      XRUNTIME_KNOWLEDGE_BACKEND: "llm_wiki"
+      XRUNTIME_KNOWLEDGE_RETRIEVAL_TOP_K: "5"
+
+      # Skill 配置
+      XRUNTIME_SKILLS_DIR: "/etc/xruntime/skills"
+      XRUNTIME_SKILL_AUTO_LOAD: "1"
+
+      # 中间件配置
+      XRUNTIME_MIDDLEWARE_AUDIT_ENABLED: "1"
+      XRUNTIME_MIDDLEWARE_RBAC_ENABLED: "1"
+      XRUNTIME_MIDDLEWARE_RBAC_DEFAULT_ROLE: "viewer"
+      XRUNTIME_MIDDLEWARE_LOOP_DETECTION_ENABLED: "1"
+      XRUNTIME_MIDDLEWARE_SECRET_REDACTION_ENABLED: "1"
+      XRUNTIME_MIDDLEWARE_MEMORY_ENABLED: "1"
+
+      # Gunicorn/UVicorn
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-4}
+      MAX_WORKERS: "8"
+      TIMEOUT: "120"
+    volumes:
+      - workspace_data:/var/lib/xruntime/workspaces
+      - skills_data:/etc/xruntime/skills
+      - audit_logs:/var/log/xruntime/audit
+      - knowledge_data:/var/lib/xruntime/knowledge
+      # Docker socket for nested workspace containers (Docker-in-Docker)
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - target: 8900
+        published: 8900
+        protocol: tcp
+        mode: host
+    networks:
+      - xruntime_internal
+      - xruntime_public
+    depends_on:
+      - redis
+    deploy:
+      replicas: ${GATEWAY_REPLICAS:-2}
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 5
+        window: 300s
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8G
+        reservations:
+          cpus: "1"
+          memory: 2G
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        monitor: 60s
+        max_failure_ratio: 0.3
+      rollback_config:
+        parallelism: 1
+        failure_action: pause
+      placement:
+        constraints:
+          - node.labels.xruntime.gateway == true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8900/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ============================================
+  # Nginx Load Balancer (可选 - 多副本时使用)
+  # ============================================
+  lb:
+    image: nginx:alpine
+    hostname: "xruntime-lb-{{.Task.Slot}}"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    ports:
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+    networks:
+      - xruntime_internal
+      - xruntime_public
+    deploy:
+      replicas: ${LB_REPLICAS:-1}
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      placement:
+        constraints:
+          - node.labels.xruntime.lb == true
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ============================================
+  # Prometheus Metrics Exporter (可选)
+  # ============================================
+  metrics:
+    image: prom/prometheus:latest
+    hostname: "xruntime-metrics-{{.Task.Slot}}"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+    ports:
+      - target: 9090
+        published: 9090
+        protocol: tcp
+        mode: host
+    networks:
+      - xruntime_internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+      placement:
+        constraints:
+          - node.labels.xruntime.metrics == true
+
+  # ============================================
+  # Fluentd Log Aggregator (可选)
+  # ============================================
+  logs:
+    image: fluent/fluentd:v1.16-debian-1
+    hostname: "xruntime-logs-{{.Task.Slot}}"
+    volumes:
+      - ./fluentd.conf:/fluentd/etc/fluent.conf
+      - audit_logs:/var/log/xruntime/audit:ro
+    ports:
+      - target: 24224
+        published: 24224
+        protocol: tcp
+        mode: host
+    networks:
+      - xruntime_internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+      placement:
+        constraints:
+          - node.labels.xruntime.logs == true
+
+# ============================================
+# Volume Definitions
+# ============================================
+volumes:
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/xruntime/redis
+      o: bind
+
+  workspace_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/xruntime/workspaces
+      o: bind
+
+  skills_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/xruntime/skills
+      o: bind
+
+  audit_logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/xruntime/logs/audit
+      o: bind
+
+  knowledge_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/xruntime/knowledge
+      o: bind
+
+  prometheus_data:
+    driver: local
+
+# ============================================
+# Network Definitions
+# ============================================
+networks:
+  xruntime_internal:
+    driver: overlay
+    attachable: true
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.0.1.0/24
+
+  xruntime_public:
+    driver: overlay
+    attachable: true
+    ipam:
+      config:
+        - subnet: 10.0.2.0/24
+
+# ============================================
+# Configuration Instructions
+# ============================================
+#
+# 1. 创建环境变量文件 .env:
+# ------------------------------------------------
+# XRUNTIME_REDIS_PASSWORD=your-secure-redis-password
+# XRUNTIME_API_KEYS=key1,key2,key3
+# XRUNTIME_JWT_SECRET=your-jwt-secret-key
+# XRUNTIME_MAX_BUDGET=100
+# XRUNTIME_MAX_TOKENS=1000000
+# GATEWAY_REPLICAS=3
+# LB_REPLICAS=2
+# LANGFUSE_ENABLED=1
+# LANGFUSE_HOST=https://langfuse.yourdomain.com
+# LANGFUSE_PUBLIC_KEY=pk-lf-xxx
+# LANGFUSE_SECRET_KEY=sk-lf-xxx
+# OTEL_ENDPOINT=http://otel-collector:4317
+#
+# 2. 标记节点用于调度:
+#   docker node update --label-add xruntime.redis=true node1
+#   docker node update --label-add xruntime.gateway=true node1
+#   docker node update --label-add xruntime.gateway=true node2
+#   docker node update --label-add xruntime.gateway=true node3
+#   docker node update --label-add xruntime.lb=true node4
+#   docker node update --label-add xruntime.metrics=true node1
+#   docker node update --label-add xruntime.logs=true node1
+#
+# 3. 创建挂载目录:
+#   mkdir -p /mnt/xruntime/{redis,workspaces,skills,logs/audit,knowledge}
+#
+# 4. 部署:
+#   docker stack deploy -c xruntime-swarm-stack.yml xruntime
+#
+# 5. 验证:
+#   docker stack services xruntime
+#   curl https://your-domain.com/health

@@ -1,0 +1,57 @@
+version: "3.9"
+
+networks:
+  xruntime-demo:
+    driver: bridge
+
+volumes:
+  redis-demo-data:
+  xruntime-demo-workspaces:
+
+services:
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-demo-data:/data
+    networks:
+      - xruntime-demo
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "demo-redis-pw", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    command: redis-server --appendonly yes --requirepass demo-redis-pw
+
+  xruntime:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8900:8900"
+    environment:
+      - XRUNTIME_STORAGE_REDIS_HOST=redis
+      - XRUNTIME_STORAGE_REDIS_PASSWORD=demo-redis-pw
+      - XRUNTIME_MESSAGE_BUS_REDIS_HOST=redis
+      - XRUNTIME_MESSAGE_BUS_REDIS_PASSWORD=demo-redis-pw
+      - XRUNTIME_SERVER_AUTH_ENABLED=false
+      - XRUNTIME_PRODUCTION=false
+      - XRUNTIME_WORKSPACE_BACKEND=local
+      - XRUNTIME_TENANT_ID=demo-tenant
+      - XRUNTIME_MODEL_PROVIDER=mock
+      - XRUNTIME_MODEL_NAME=mock-model
+    volumes:
+      - xruntime-demo-workspaces:/var/lib/xruntime/workspaces
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - xruntime-demo
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8900/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
